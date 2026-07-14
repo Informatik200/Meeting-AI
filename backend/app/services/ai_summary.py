@@ -1,9 +1,9 @@
 """
-Sends a meeting transcript to Claude and gets back a structured summary.
+Sends a meeting transcript to Google Gemini and gets back a structured summary.
 """
 import json
 
-from anthropic import Anthropic
+import google.generativeai as genai
 
 from app.config import settings
 
@@ -26,32 +26,32 @@ If information for a field is missing (e.g. no decisions were made), return an e
 never invent content that isn't in the transcript."""
 
 
+def _get_model() -> genai.GenerativeModel:
+    """Configure the Gemini client and return a GenerativeModel instance."""
+    if not settings.gemini_api_key:
+        raise ValueError("GEMINI_API_KEY is not configured. Add it to backend/.env and retry.")
+
+    genai.configure(api_key=settings.gemini_api_key)
+    return genai.GenerativeModel(
+        model_name="gemini-2.0-flash",
+        system_instruction=SYSTEM_PROMPT,
+    )
+
+
 def summarize_transcript(transcript: str) -> dict:
     """
-    Calls Claude with the transcript and parses the structured JSON response.
-    Raises ValueError if Claude doesn't return valid JSON.
+    Calls Gemini with the transcript and parses the structured JSON response.
+    Raises ValueError if Gemini doesn't return valid JSON.
     """
-    if not settings.anthropic_api_key:
-        raise ValueError("ANTHROPIC_API_KEY is not configured. Add it to backend/.env and retry.")
+    model = _get_model()
 
-    client = Anthropic(api_key=settings.anthropic_api_key)
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2000,
-        system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": f"Here is the transcript:\n\n{transcript}",
-            }
-        ],
+    response = model.generate_content(
+        f"Here is the transcript:\n\n{transcript}",
     )
 
-    raw_text = "".join(
-        block.text for block in message.content if block.type == "text"
-    )
+    raw_text = response.text
 
-    # Claude sometimes wraps JSON in markdown fences despite instructions - strip them
+    # Gemini sometimes wraps JSON in markdown fences despite instructions - strip them
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.split("```")[1]
@@ -62,7 +62,7 @@ def summarize_transcript(transcript: str) -> dict:
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
-        raise ValueError(f"Claude did not return valid JSON: {raw_text}") from e
+        raise ValueError(f"Gemini did not return valid JSON: {raw_text}") from e
 
 
 def answer_question_about_meetings(question: str, context_chunks: list[str]) -> str:
@@ -71,25 +71,22 @@ def answer_question_about_meetings(question: str, context_chunks: list[str]) -> 
     answer a question grounded in those chunks. Kept here now so the API
     shape is ready when we wire up embeddings.
     """
-    if not settings.anthropic_api_key:
-        raise ValueError("ANTHROPIC_API_KEY is not configured.")
+    if not settings.gemini_api_key:
+        raise ValueError("GEMINI_API_KEY is not configured.")
 
-    context = "\n\n---\n\n".join(context_chunks)
-    client = Anthropic(api_key=settings.anthropic_api_key)
-
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1000,
-        system=(
+    genai.configure(api_key=settings.gemini_api_key)
+    model = genai.GenerativeModel(
+        model_name="gemini-2.0-flash",
+        system_instruction=(
             "Answer the user's question using ONLY the meeting excerpts provided. "
             "If the answer isn't in the excerpts, say so clearly instead of guessing."
         ),
-        messages=[
-            {
-                "role": "user",
-                "content": f"Meeting excerpts:\n\n{context}\n\nQuestion: {question}",
-            }
-        ],
     )
 
-    return "".join(block.text for block in message.content if block.type == "text")
+    context = "\n\n---\n\n".join(context_chunks)
+
+    response = model.generate_content(
+        f"Meeting excerpts:\n\n{context}\n\nQuestion: {question}",
+    )
+
+    return response.text

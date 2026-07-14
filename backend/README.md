@@ -1,7 +1,7 @@
 # Meeting AI Assistant — Backend (Phase 1)
 
 Working end-to-end pipeline: record/upload audio → transcribe (Whisper, local) →
-summarize + extract action items (Claude API) → store locally in SQLite (or Postgres).
+summarize + extract action items (Gemini API) → store locally in SQLite (or Postgres).
 
 ## What's here
 
@@ -13,7 +13,7 @@ backend/
     database.py              # SQLAlchemy models (Meeting table)
     services/
       transcription.py       # faster-whisper wrapper
-      ai_summary.py           # Claude API call + JSON parsing
+      ai_summary.py           # Gemini API call + JSON parsing
   requirements.txt
   .env.example
 ```
@@ -34,8 +34,8 @@ backend/
    ```bash
    cp .env.example .env
    ```
-   Then open `.env` and paste in your real Anthropic API key
-   (get one at https://console.anthropic.com/settings/keys). The default SQLite
+   Then open `.env` and paste in your real Gemini API key
+   (get a free key at https://aistudio.google.com/apikey). The default SQLite
    database needs no extra setup. You can use Postgres by changing `DATABASE_URL`.
 
 4. **Run the server:**

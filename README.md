@@ -6,17 +6,17 @@
 
 - Browser microphone recording and audio upload (`.webm`, `.mp3`, `.wav`, `.m4a`, `.ogg`, `.mp4`)
 - Local speech-to-text with faster-whisper — audio never goes to a transcription API
-- Claude-powered structured notes: title, summary, key points, decisions, and action items
+- Gemini-powered structured notes: title, summary, key points, decisions, and action items
 - A simple meeting dashboard with history and full transcript
 - SQLite by default: no Docker or database setup needed for the demo
 
 ## Stack
 
-Next.js · FastAPI · faster-whisper · Anthropic Claude · SQLite (Postgres-ready)
+Next.js · FastAPI · faster-whisper · Google Gemini · SQLite (Postgres-ready)
 
 ## Run locally
 
-Prerequisites: **Node.js 20+**, Python **3.10+**, and an Anthropic API key.
+Prerequisites: **Node.js 20+**, Python **3.10+**, and a Gemini API key (free at https://aistudio.google.com/apikey).
 
 Start the API in one terminal:
 
@@ -26,7 +26,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Add ANTHROPIC_API_KEY to backend/.env
+# Add GEMINI_API_KEY to backend/.env
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -55,7 +55,7 @@ Interactive API docs are available at [http://localhost:8000/docs](http://localh
 ## Project structure
 
 ```
-backend/     FastAPI, Whisper transcription, Claude summaries, SQLite/Postgres
+backend/     FastAPI, Whisper transcription, Gemini summaries, SQLite/Postgres
 frontend/    Next.js recording UI and meeting dashboard
 ```
 
