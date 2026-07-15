@@ -3,14 +3,14 @@ import os
 import shutil
 import uuid
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import init_db, get_db, Meeting
-from app.services.transcription import transcribe_audio
+from app.database import Meeting, get_db, init_db
 from app.services.ai_summary import summarize_transcript
+from app.services.transcription import transcribe_audio
 
 app = FastAPI(title="Meeting AI Assistant")
 
@@ -107,6 +107,23 @@ def get_meeting(meeting_id: int, db: Session = Depends(get_db)):
     if not meeting:
         raise HTTPException(404, "Meeting not found")
     return _meeting_to_dict(meeting)
+
+
+@app.get("/meetings/{meeting_id}/pdf")
+def get_meeting_pdf(meeting_id: int, lang: str = "en", db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(404, "Meeting not found")
+
+    from fastapi.responses import Response
+
+    from app.services.pdf_generator import generate_pdf
+
+    meeting_dict = _meeting_to_dict(meeting)
+    pdf_bytes = generate_pdf(meeting_dict, lang=lang)
+
+    headers = {"Content-Disposition": f"attachment; filename=meeting-{meeting_id}.pdf"}
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 
 def _meeting_to_dict(meeting: Meeting) -> dict:

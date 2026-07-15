@@ -15,3 +15,9 @@ frontend/.env.local
 /.npm-cache/
 /.pip-cache/
 /.pycache-test/
+
+# Test artifacts
+frontend/test-results/
+frontend/playwright-report/
+backend/.pytest_cache/
+
