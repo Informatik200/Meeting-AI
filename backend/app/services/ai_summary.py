@@ -1,9 +1,11 @@
 """
 Sends a meeting transcript to Google Gemini and gets back a structured summary.
 """
+
 import json
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from app.config import settings
 
@@ -26,16 +28,11 @@ If information for a field is missing (e.g. no decisions were made), return an e
 never invent content that isn't in the transcript."""
 
 
-def _get_model() -> genai.GenerativeModel:
-    """Configure the Gemini client and return a GenerativeModel instance."""
+def _get_client() -> genai.Client:
+    """Configure the Gemini client."""
     if not settings.gemini_api_key:
         raise ValueError("GEMINI_API_KEY is not configured. Add it to backend/.env and retry.")
-
-    genai.configure(api_key=settings.gemini_api_key)
-    return genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
-        system_instruction=SYSTEM_PROMPT,
-    )
+    return genai.Client(api_key=settings.gemini_api_key)
 
 
 def summarize_transcript(transcript: str) -> dict:
@@ -43,10 +40,14 @@ def summarize_transcript(transcript: str) -> dict:
     Calls Gemini with the transcript and parses the structured JSON response.
     Raises ValueError if Gemini doesn't return valid JSON.
     """
-    model = _get_model()
+    client = _get_client()
 
-    response = model.generate_content(
-        f"Here is the transcript:\n\n{transcript}",
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-lite",
+        contents=f"Here is the transcript:\n\n{transcript}",
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+        ),
     )
 
     raw_text = response.text
@@ -71,22 +72,19 @@ def answer_question_about_meetings(question: str, context_chunks: list[str]) -> 
     answer a question grounded in those chunks. Kept here now so the API
     shape is ready when we wire up embeddings.
     """
-    if not settings.gemini_api_key:
-        raise ValueError("GEMINI_API_KEY is not configured.")
-
-    genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
-        system_instruction=(
-            "Answer the user's question using ONLY the meeting excerpts provided. "
-            "If the answer isn't in the excerpts, say so clearly instead of guessing."
-        ),
-    )
+    client = _get_client()
 
     context = "\n\n---\n\n".join(context_chunks)
 
-    response = model.generate_content(
-        f"Meeting excerpts:\n\n{context}\n\nQuestion: {question}",
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-lite",
+        contents=f"Meeting excerpts:\n\n{context}\n\nQuestion: {question}",
+        config=types.GenerateContentConfig(
+            system_instruction=(
+                "Answer the user's question using ONLY the meeting excerpts provided. "
+                "If the answer isn't in the excerpts, say so clearly instead of guessing."
+            ),
+        ),
     )
 
     return response.text

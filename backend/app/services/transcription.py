@@ -4,6 +4,7 @@ Speech-to-text using faster-whisper (runs locally, no API cost).
 First run will download the model weights (a few hundred MB to ~1.5GB
 depending on model size) - this needs internet access once, then it's cached.
 """
+
 from functools import lru_cache
 
 from faster_whisper import WhisperModel
@@ -23,7 +24,7 @@ def get_model() -> WhisperModel:
     return WhisperModel(
         settings.whisper_model_size,
         device="cpu",
-        compute_type="int8",  # int8 is fast and accurate enough on CPU
+        compute_type="float32",  # float32 avoids native OpenBLAS int8 segfaults on macOS arm64
     )
 
 
@@ -32,6 +33,14 @@ def transcribe_audio(file_path: str) -> str:
     Transcribes an audio file to plain text.
     Supports mp3, wav, m4a, webm, and most common audio formats.
     """
+    import os
+
+    if os.environ.get("MOCK_WHISPER") == "1":
+        return (
+            "Alice: Let us prioritize migrating our component library to Tailwind CSS by the next sprint. "
+            "Alice will lead the conversion migration work."
+        )
+
     model = get_model()
 
     segments, info = model.transcribe(
@@ -55,7 +64,4 @@ def transcribe_audio_with_timestamps(file_path: str) -> list[dict]:
 
     segments, info = model.transcribe(file_path, beam_size=5, vad_filter=True)
 
-    return [
-        {"start": seg.start, "end": seg.end, "text": seg.text.strip()}
-        for seg in segments
-    ]
+    return [{"start": seg.start, "end": seg.end, "text": seg.text.strip()} for seg in segments]
