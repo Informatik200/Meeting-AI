@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.config import settings
 
@@ -19,8 +19,8 @@ class Meeting(Base):
     audio_path = Column(String, nullable=False)
     transcript = Column(Text, nullable=True)
     summary = Column(Text, nullable=True)
-    key_points = Column(Text, nullable=True)   # stored as JSON string
-    decisions = Column(Text, nullable=True)    # stored as JSON string
+    key_points = Column(Text, nullable=True)  # stored as JSON string
+    decisions = Column(Text, nullable=True)  # stored as JSON string
     action_items = Column(Text, nullable=True)  # stored as JSON string
     status = Column(String, default="uploaded")  # uploaded -> transcribing -> summarizing -> done -> failed
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
