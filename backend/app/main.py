@@ -5,6 +5,8 @@ import uuid
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -23,6 +25,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/audio", StaticFiles(directory=settings.upload_dir), name="audio")
 
 
 @app.on_event("startup")
@@ -76,8 +80,20 @@ async def upload_meeting(file: UploadFile = File(...), db: Session = Depends(get
         meeting.status = "summarizing"
         db.commit()
 
+        # Step 1.5: classify transcript
+        from app.services.classification import classify_transcript
+
+        try:
+            class_res = classify_transcript(transcript)
+            meeting.recording_type = class_res.get("recording_type", "Unknown")
+            meeting.confidence = class_res.get("confidence", 100)
+        except Exception:
+            meeting.recording_type = "Unknown"
+            meeting.confidence = 100
+        db.commit()
+
         # Step 2: text -> structured summary
-        ai_result = summarize_transcript(transcript)
+        ai_result = summarize_transcript(transcript, recording_type=meeting.recording_type)
 
         meeting.title = ai_result.get("title", "Untitled Meeting")
         meeting.summary = ai_result.get("summary", "")
@@ -86,6 +102,14 @@ async def upload_meeting(file: UploadFile = File(...), db: Session = Depends(get
         meeting.action_items = json.dumps(ai_result.get("action_items", []))
         meeting.status = "done"
         db.commit()
+
+        # Step 3: extract entities for memory graph
+        from app.services.memory import extract_and_store_entities
+
+        try:
+            extract_and_store_entities(meeting, db)
+        except Exception as e:
+            print(f"Entity extraction failed: {str(e)}")
 
     except Exception as e:
         meeting.status = "failed"
@@ -126,11 +150,105 @@ def get_meeting_pdf(meeting_id: int, lang: str = "en", db: Session = Depends(get
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 
+class GlobalChatRequest(BaseModel):
+    message: str
+
+
+@app.post("/meetings/global/chat")
+def global_chat(request: GlobalChatRequest, db: Session = Depends(get_db)):
+    from app.services.memory import answer_global_chat
+
+    try:
+        answer = answer_global_chat(request.message, db)
+        return {"response": answer}
+    except Exception as e:
+        raise HTTPException(500, f"Global chat failed: {str(e)}")
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+@app.post("/meetings/{meeting_id}/chat")
+def chat_about_meeting(meeting_id: int, request: ChatRequest, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(404, "Meeting not found")
+    if not meeting.transcript:
+        raise HTTPException(400, "Meeting transcript is empty or not available yet")
+
+    from app.services.ai_summary import answer_meeting_chat
+
+    try:
+        answer = answer_meeting_chat(request.message, meeting.transcript)
+        return {"response": answer}
+    except Exception as e:
+        raise HTTPException(500, f"Chat processing failed: {str(e)}")
+
+
+@app.get("/meetings/{meeting_id}/metadata")
+def get_meeting_metadata(meeting_id: int, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(404, "Meeting not found")
+
+    from app.services.memory import get_meeting_entities_and_related
+
+    try:
+        metadata = get_meeting_entities_and_related(meeting_id, db)
+        return metadata
+    except Exception as e:
+        raise HTTPException(500, f"Failed to retrieve metadata: {str(e)}")
+
+
+class RegenerateRequest(BaseModel):
+    recording_type: str
+
+
+@app.post("/meetings/{meeting_id}/regenerate")
+def regenerate_meeting_analysis(meeting_id: int, request: RegenerateRequest, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(404, "Meeting not found")
+    if not meeting.transcript:
+        raise HTTPException(400, "Meeting transcript is empty or not available yet")
+
+    valid_types = {"Business Meeting", "Lecture", "Interview", "Personal Notes", "Podcast / Discussion", "Unknown"}
+    if request.recording_type not in valid_types:
+        raise HTTPException(400, f"Invalid recording type: {request.recording_type}")
+
+    meeting.recording_type = request.recording_type
+    meeting.confidence = 100  # Manual override is 100% confident
+    db.commit()
+
+    try:
+        from app.services.ai_summary import summarize_transcript
+
+        ai_result = summarize_transcript(meeting.transcript, recording_type=request.recording_type)
+
+        meeting.title = ai_result.get("title", "Untitled Meeting")
+        meeting.summary = ai_result.get("summary", "")
+        meeting.key_points = json.dumps(ai_result.get("key_points", []))
+        meeting.decisions = json.dumps(ai_result.get("decisions", []))
+        meeting.action_items = json.dumps(ai_result.get("action_items", []))
+        meeting.status = "done"
+        db.commit()
+    except Exception as e:
+        meeting.status = "failed"
+        db.commit()
+        raise HTTPException(500, f"Regeneration failed: {str(e)}")
+
+    return _meeting_to_dict(meeting)
+
+
 def _meeting_to_dict(meeting: Meeting) -> dict:
     return {
         "id": meeting.id,
         "title": meeting.title,
         "status": meeting.status,
+        "recording_type": meeting.recording_type or "Unknown",
+        "confidence": meeting.confidence if meeting.confidence is not None else 100,
+        "audio_filename": os.path.basename(meeting.audio_path) if meeting.audio_path else None,
         "transcript": meeting.transcript,
         "summary": meeting.summary,
         "key_points": json.loads(meeting.key_points) if meeting.key_points else [],
