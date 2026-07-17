@@ -1,5 +1,9 @@
 import os
+import sys
 from unittest.mock import MagicMock, patch
+
+# Mock faster_whisper before other imports to prevent loading binary wheels in headless CI
+sys.modules["faster_whisper"] = MagicMock()
 
 import pytest
 
