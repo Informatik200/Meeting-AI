@@ -1,26 +1,33 @@
 import json
+import logging
 import os
-import shutil
 import uuid
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import Meeting, get_db, init_db
+from app.logging_config import configure_logging
+from app.rate_limit import rate_limiter
 from app.services.ai_summary import summarize_transcript
 from app.services.transcription import transcribe_audio
 
+configure_logging(settings.log_level)
+logger = logging.getLogger("app")
+
 app = FastAPI(title="Meeting AI Assistant")
 
-# Allow the Next.js frontend (localhost:3000) to call this API during development.
-# Tighten this to your real frontend domain before deploying.
+# Allowed origins come from CORS_ORIGINS (comma-separated), defaulting to local
+# dev. Set it to the real frontend domain(s) in production.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,6 +37,12 @@ app.add_middleware(
 os.makedirs(settings.upload_dir, exist_ok=True)
 app.mount("/audio", StaticFiles(directory=settings.upload_dir), name="audio")
 
+# Shared per-IP rate limit buckets: one for uploads, one for all AI-backed
+# endpoints (chat, global chat, regenerate) so usage can't be spread across
+# routes to dodge the limit.
+_upload_rate_limit = rate_limiter(settings.rate_limit_upload_per_minute)
+_ai_rate_limit = rate_limiter(settings.rate_limit_ai_per_minute)
+
 
 @app.on_event("startup")
 def on_startup():
@@ -38,11 +51,23 @@ def on_startup():
 
 
 @app.get("/health")
-def health_check():
-    return {"status": "ok"}
+def health_check(db: Session = Depends(get_db)):
+    checks = {"database": False, "ai_service_configured": bool(settings.gemini_api_key)}
+
+    try:
+        db.execute(text("SELECT 1"))
+        checks["database"] = True
+    except Exception:
+        logger.error("Health check: database unreachable", exc_info=True)
+
+    if not checks["database"]:
+        return JSONResponse(status_code=503, content={"status": "unhealthy", "checks": checks})
+
+    status = "ok" if checks["ai_service_configured"] else "degraded"
+    return {"status": status, "checks": checks}
 
 
-@app.post("/meetings/upload")
+@app.post("/meetings/upload", dependencies=[Depends(_upload_rate_limit)])
 async def upload_meeting(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
     Accepts an audio file, transcribes it, summarizes it, and saves everything.
@@ -61,14 +86,28 @@ async def upload_meeting(file: UploadFile = File(...), db: Session = Depends(get
     if ext not in allowed_extensions:
         raise HTTPException(400, f"Unsupported file type: {ext}")
 
-    # Save the uploaded file to disk with a unique name so filenames never collide
+    # Save the uploaded file to disk with a unique name so filenames never collide.
+    # Stream it in chunks and enforce the size cap as we go, rather than trusting
+    # a possibly-absent/incorrect Content-Length header.
+    max_upload_bytes = settings.max_upload_mb * 1024 * 1024
     unique_name = f"{uuid.uuid4()}{ext}"
     save_path = os.path.join(settings.upload_dir, unique_name)
+    total_bytes = 0
+    size_exceeded = False
     try:
         with open(save_path, "wb") as f:
-            shutil.copyfileobj(file.file, f)
+            while chunk := await file.read(1024 * 1024):
+                total_bytes += len(chunk)
+                if total_bytes > max_upload_bytes:
+                    size_exceeded = True
+                    break
+                f.write(chunk)
     finally:
         await file.close()
+
+    if size_exceeded:
+        os.remove(save_path)
+        raise HTTPException(413, f"Audio file exceeds the {settings.max_upload_mb}MB upload limit.")
 
     meeting = Meeting(audio_path=save_path, status="transcribing")
     db.add(meeting)
@@ -90,6 +129,9 @@ async def upload_meeting(file: UploadFile = File(...), db: Session = Depends(get
             meeting.recording_type = class_res.get("recording_type", "Unknown")
             meeting.confidence = class_res.get("confidence", 100)
         except Exception:
+            logger.warning(
+                "Classification failed for meeting_id=%s, falling back to Unknown", meeting.id, exc_info=True
+            )
             meeting.recording_type = "Unknown"
             meeting.confidence = 100
         db.commit()
@@ -110,20 +152,29 @@ async def upload_meeting(file: UploadFile = File(...), db: Session = Depends(get
 
         try:
             extract_and_store_entities(meeting, db)
-        except Exception as e:
-            print(f"Entity extraction failed: {str(e)}")
+        except Exception:
+            logger.error("Entity extraction failed for meeting_id=%s", meeting.id, exc_info=True)
 
-    except Exception as e:
+    except Exception:
         meeting.status = "failed"
         db.commit()
-        raise HTTPException(500, f"Processing failed: {str(e)}")
+        logger.error("Meeting processing failed for meeting_id=%s", meeting.id, exc_info=True)
+        raise HTTPException(500, "Processing failed. Please try again or contact support if this continues.")
 
     return _meeting_to_dict(meeting)
 
 
 @app.get("/meetings")
-def list_meetings(db: Session = Depends(get_db)):
-    meetings = db.query(Meeting).order_by(Meeting.created_at.desc()).all()
+def list_meetings(
+    response: Response,
+    limit: int = Query(default=None, ge=1, le=settings.max_page_size),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+):
+    effective_limit = limit or settings.default_page_size
+    total = db.query(Meeting).count()
+    meetings = db.query(Meeting).order_by(Meeting.created_at.desc()).offset(offset).limit(effective_limit).all()
+    response.headers["X-Total-Count"] = str(total)
     return [_meeting_to_dict(m) for m in meetings]
 
 
@@ -141,8 +192,6 @@ def get_meeting_pdf(meeting_id: int, lang: str = "en", db: Session = Depends(get
     if not meeting:
         raise HTTPException(404, "Meeting not found")
 
-    from fastapi.responses import Response
-
     from app.services.pdf_generator import generate_pdf
 
     meeting_dict = _meeting_to_dict(meeting)
@@ -156,22 +205,23 @@ class GlobalChatRequest(BaseModel):
     message: str
 
 
-@app.post("/meetings/global/chat")
+@app.post("/meetings/global/chat", dependencies=[Depends(_ai_rate_limit)])
 def global_chat(request: GlobalChatRequest, db: Session = Depends(get_db)):
     from app.services.memory import answer_global_chat
 
     try:
         answer = answer_global_chat(request.message, db)
         return {"response": answer}
-    except Exception as e:
-        raise HTTPException(500, f"Global chat failed: {str(e)}")
+    except Exception:
+        logger.error("Global chat failed", exc_info=True)
+        raise HTTPException(500, "Could not process the chat request. Please try again.")
 
 
 class ChatRequest(BaseModel):
     message: str
 
 
-@app.post("/meetings/{meeting_id}/chat")
+@app.post("/meetings/{meeting_id}/chat", dependencies=[Depends(_ai_rate_limit)])
 def chat_about_meeting(meeting_id: int, request: ChatRequest, db: Session = Depends(get_db)):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
@@ -184,8 +234,9 @@ def chat_about_meeting(meeting_id: int, request: ChatRequest, db: Session = Depe
     try:
         answer = answer_meeting_chat(request.message, meeting.transcript)
         return {"response": answer}
-    except Exception as e:
-        raise HTTPException(500, f"Chat processing failed: {str(e)}")
+    except Exception:
+        logger.error("Chat processing failed for meeting_id=%s", meeting_id, exc_info=True)
+        raise HTTPException(500, "Could not process the chat request. Please try again.")
 
 
 @app.get("/meetings/{meeting_id}/metadata")
@@ -199,15 +250,16 @@ def get_meeting_metadata(meeting_id: int, db: Session = Depends(get_db)):
     try:
         metadata = get_meeting_entities_and_related(meeting_id, db)
         return metadata
-    except Exception as e:
-        raise HTTPException(500, f"Failed to retrieve metadata: {str(e)}")
+    except Exception:
+        logger.error("Failed to retrieve metadata for meeting_id=%s", meeting_id, exc_info=True)
+        raise HTTPException(500, "Could not retrieve recording metadata. Please try again.")
 
 
 class RegenerateRequest(BaseModel):
     recording_type: str
 
 
-@app.post("/meetings/{meeting_id}/regenerate")
+@app.post("/meetings/{meeting_id}/regenerate", dependencies=[Depends(_ai_rate_limit)])
 def regenerate_meeting_analysis(meeting_id: int, request: RegenerateRequest, db: Session = Depends(get_db)):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
@@ -233,10 +285,11 @@ def regenerate_meeting_analysis(meeting_id: int, request: RegenerateRequest, db:
         meeting.action_items = json.dumps(ai_result.get("action_items", []))
         meeting.status = "done"
         db.commit()
-    except Exception as e:
+    except Exception:
         meeting.status = "failed"
         db.commit()
-        raise HTTPException(500, f"Regeneration failed: {str(e)}")
+        logger.error("Regeneration failed for meeting_id=%s", meeting_id, exc_info=True)
+        raise HTTPException(500, "Regeneration failed. Please try again.")
 
     return _meeting_to_dict(meeting)
 

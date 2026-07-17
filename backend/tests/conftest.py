@@ -10,6 +10,9 @@ import pytest
 # Force SQLite memory database and a dummy api key for config loading during testing
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["GEMINI_API_KEY"] = "mock_gemini_api_key_value_for_testing_12345"
+# Rate limiting is exercised by its own isolated unit test (test_rate_limit.py);
+# disable it here so the shared in-memory buckets can't make unrelated tests flaky.
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -32,6 +35,7 @@ def setup_test_env():
     settings.database_url = "sqlite:///:memory:"
     settings.gemini_api_key = "mock_gemini_api_key_value_for_testing_12345"
     settings.upload_dir = temp_dir
+    settings.rate_limit_enabled = False
     yield
     shutil.rmtree(temp_dir, ignore_errors=True)
 
