@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Meeting AI",
-  description: "Private meeting transcripts and action items",
+  title: "ORIVON",
+  description: "AI Knowledge Workspace",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

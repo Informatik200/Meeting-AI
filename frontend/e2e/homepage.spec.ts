@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Meeting-AI Frontend E2E Tests", () => {
+test.describe("Orivon Frontend E2E Tests", () => {
   // Mock GET /meetings on every page load to return empty list
   test.beforeEach(async ({ page }) => {
     await page.route("**/meetings", async (route) => {
@@ -14,8 +14,8 @@ test.describe("Meeting-AI Frontend E2E Tests", () => {
 
   test("1. homepage loads successfully", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("a.sidebar-brand")).toContainText("Meeting AI");
-    await expect(page.locator("text=Your meeting notes will appear here.")).toBeVisible();
+    await expect(page.locator("a.sidebar-brand")).toContainText("ORIVON");
+    await expect(page.locator("text=Your structured knowledge will appear here.")).toBeVisible();
   });
 
   test("2. choose-file UI works", async ({ page }) => {
@@ -23,11 +23,11 @@ test.describe("Meeting-AI Frontend E2E Tests", () => {
     // Switch to Record & Upload tab
     await page.locator("text=Record & Upload").click();
 
-    const chooseFileLabel = page.locator("label:has-text('Choose file')");
+    const chooseFileLabel = page.locator(".rf-upload-trigger-btn");
     await expect(chooseFileLabel).toBeVisible();
 
     const fileInput = page.locator("input[type='file']");
-    await expect(fileInput).toBeHidden(); // Hidden input inside the label
+    await expect(fileInput).toBeHidden(); // Hidden input inside the trigger button area
   });
 
   test("3. processing state appears during upload", async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe("Meeting-AI Frontend E2E Tests", () => {
     // Switch to Record & Upload tab
     await page.locator("text=Record & Upload").click();
 
-    // Set file input
+    // Set file input (starts upload immediately)
     const fileInput = page.locator("input[type='file']");
     await fileInput.setInputFiles({
       name: "test.wav",
@@ -66,13 +66,8 @@ test.describe("Meeting-AI Frontend E2E Tests", () => {
       buffer: Buffer.from("RIFF dummy WAV file data"),
     });
 
-    // Click Transcribe & summarize →
-    const processBtn = page.locator("button:has-text('Transcribe & summarize')");
-    await expect(processBtn).toBeVisible();
-    await processBtn.click();
-
-    // Check loading indicator appears
-    await expect(page.locator("button:has-text('Processing meeting…')")).toBeVisible();
+    // Check loading indicator / processing view appears immediately
+    await expect(page.locator(".rf-processing-view")).toBeVisible();
   });
 
   test("4. backend errors stop the loading state and display error", async ({ page }) => {
@@ -97,12 +92,8 @@ test.describe("Meeting-AI Frontend E2E Tests", () => {
       buffer: Buffer.from("RIFF dummy WAV file data"),
     });
 
-    // Click Transcribe & summarize →
-    await page.locator("button:has-text('Transcribe & summarize')").click();
-
-    // Verify error is displayed, processing state ends, and retry button remains visible
-    await expect(page.locator("button:has-text('Transcribe & summarize')")).toBeVisible();
-    await expect(page.locator("p.error")).toContainText("Internal Server Error during AI summary");
+    // Verify error is displayed, processing state ends
+    await expect(page.locator(".rf-error-message")).toContainText("Internal Server Error during AI summary");
   });
 
   test("5. successful meeting processing displays all structured sections", async ({ page }) => {
@@ -143,9 +134,6 @@ test.describe("Meeting-AI Frontend E2E Tests", () => {
       buffer: Buffer.from("RIFF dummy WAV file data"),
     });
 
-    // Click Transcribe & summarize →
-    await page.locator("button:has-text('Transcribe & summarize')").click();
-
     // Check title is rendered
     await expect(page.locator("h1:has-text('Design System Alignment')")).toBeVisible();
 
@@ -162,8 +150,9 @@ test.describe("Meeting-AI Frontend E2E Tests", () => {
     await expect(page.locator("text=Lead conversion migration work")).toBeVisible();
     await expect(page.locator("text=Alice · Next Friday")).toBeVisible();
 
-    // Check full transcript container
-    await expect(page.locator(".transcript-container")).toContainText("We decided to migrate our component library");
+    // Check full transcript — navigate to Transcript tab first (new workspace nav)
+    await page.locator("button[role='tab']:has-text('Transcript')").click();
+    await expect(page.locator(".rw-transcript-body")).toContainText("We decided to migrate our component library");
   });
 
   test("6. failed meeting displays processing failure and full transcript", async ({ page }) => {
@@ -197,10 +186,11 @@ test.describe("Meeting-AI Frontend E2E Tests", () => {
     await expect(page.locator("h1:has-text('Failed Meeting Test')")).toBeVisible();
 
     // Summary section should show failed warning
-    await expect(page.locator(".workspace-summary-text")).toContainText("Processing failed. Please check the backend logs or retry.");
+    await expect(page.locator(".rw-summary-text")).toContainText("Processing failed. Please check the backend logs or retry.");
 
-    // Full transcript should still be visible
-    await expect(page.locator(".transcript-container")).toContainText("This is a transcript of a meeting that eventually failed");
+    // Full transcript should still be visible — switch to Transcript tab
+    await page.locator("button[role='tab']:has-text('Transcript')").click();
+    await expect(page.locator(".rw-transcript-body")).toContainText("This is a transcript of a meeting that eventually failed");
   });
 
   test("7. export PDF button is visible for completed meetings", async ({ page }) => {

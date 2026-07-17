@@ -37,8 +37,8 @@ def transcribe_audio(file_path: str) -> str:
 
     if os.environ.get("MOCK_WHISPER") == "1":
         return (
-            "Alice: Let us prioritize migrating our component library to Tailwind CSS by the next sprint. "
-            "Alice will lead the conversion migration work."
+            "[00:00] Alice: Let us prioritize migrating our component library to Tailwind CSS by the next sprint. "
+            "[00:06] Alice will lead the conversion migration work."
         )
 
     model = get_model()
@@ -49,9 +49,15 @@ def transcribe_audio(file_path: str) -> str:
         vad_filter=True,  # filters out silence, improves quality
     )
 
-    # segments is a generator - each segment has .start, .end, .text
-    full_text = " ".join(segment.text.strip() for segment in segments)
+    segments_list = list(segments)
+    formatted = []
+    for seg in segments_list:
+        seconds = int(seg.start)
+        m = seconds // 60
+        s = seconds % 60
+        formatted.append(f"[{m:02d}:{s:02d}] {seg.text.strip()}")
 
+    full_text = " ".join(formatted)
     return full_text.strip()
 
 
