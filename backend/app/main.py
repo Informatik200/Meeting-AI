@@ -241,6 +241,30 @@ def regenerate_meeting_analysis(meeting_id: int, request: RegenerateRequest, db:
     return _meeting_to_dict(meeting)
 
 
+class RenameRequest(BaseModel):
+    title: str
+
+
+@app.put("/meetings/{meeting_id}")
+def rename_meeting(meeting_id: int, request: RenameRequest, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(404, "Meeting not found")
+    meeting.title = request.title
+    db.commit()
+    return _meeting_to_dict(meeting)
+
+
+@app.delete("/meetings/{meeting_id}")
+def delete_meeting(meeting_id: int, db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(404, "Meeting not found")
+    db.delete(meeting)
+    db.commit()
+    return {"status": "success"}
+
+
 def _meeting_to_dict(meeting: Meeting) -> dict:
     return {
         "id": meeting.id,
