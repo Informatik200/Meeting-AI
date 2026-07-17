@@ -26,6 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Ensure uploads directory exists before mounting StaticFiles
 os.makedirs(settings.upload_dir, exist_ok=True)
 app.mount("/audio", StaticFiles(directory=settings.upload_dir), name="audio")
 
