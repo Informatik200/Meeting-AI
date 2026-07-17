@@ -10,9 +10,9 @@ def test_list_meetings_empty(client):
     assert response.headers["X-Total-Count"] == "0"
 
 
-def test_list_meetings_pagination(client, db_session):
+def test_list_meetings_pagination(client, db_session, test_user):
     for i in range(5):
-        db_session.add(Meeting(title=f"Meeting {i}", audio_path=f"/tmp/{i}.wav", status="done"))
+        db_session.add(Meeting(owner_id=test_user.id, title=f"Meeting {i}", audio_path=f"/tmp/{i}.wav", status="done"))
     db_session.commit()
 
     response = client.get("/meetings", params={"limit": 2, "offset": 0})

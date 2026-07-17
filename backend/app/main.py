@@ -2,17 +2,19 @@ import json
 import logging
 import os
 import uuid
+from typing import Optional
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Response, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app import auth
+from app.auth import get_current_user, get_current_user_optional
 from app.config import settings
-from app.database import Meeting, get_db, init_db
+from app.database import Meeting, User, get_db, init_db
 from app.logging_config import configure_logging
 from app.rate_limit import rate_limiter
 from app.services.ai_summary import summarize_transcript
@@ -33,9 +35,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ensure uploads directory exists before mounting StaticFiles
 os.makedirs(settings.upload_dir, exist_ok=True)
-app.mount("/audio", StaticFiles(directory=settings.upload_dir), name="audio")
+
+REFRESH_COOKIE_NAME = "refresh_token"
 
 # Shared per-IP rate limit buckets: one for uploads, one for all AI-backed
 # endpoints (chat, global chat, regenerate) so usage can't be spread across
@@ -67,9 +69,161 @@ def health_check(db: Session = Depends(get_db)):
     return {"status": status, "checks": checks}
 
 
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class GoogleAuthRequest(BaseModel):
+    id_token: str
+
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+    name: Optional[str]
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.jwt_refresh_token_expire_days * 24 * 60 * 60,
+        # Scoped to /auth so this cookie isn't sent on every ordinary API
+        # call - only the endpoints that actually need it.
+        path="/auth",
+    )
+
+
+def _issue_tokens(user: User, response: Response, db: Session) -> TokenResponse:
+    access_token = auth.create_access_token(user.id)
+    refresh_token = auth.issue_refresh_token(db, user.id)
+    _set_refresh_cookie(response, refresh_token)
+    return TokenResponse(access_token=access_token, user=UserOut(id=user.id, email=user.email, name=user.name))
+
+
+@app.post("/auth/register", response_model=TokenResponse)
+def register(body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+    email = body.email.strip().lower()
+    if "@" not in email or len(body.password) < 8:
+        raise HTTPException(400, "A valid email and a password of at least 8 characters are required.")
+
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(409, "An account with this email already exists.")
+
+    user = User(email=email, hashed_password=auth.hash_password(body.password), name=body.name)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return _issue_tokens(user, response, db)
+
+
+@app.post("/auth/login", response_model=TokenResponse)
+def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    email = body.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.hashed_password or not auth.verify_password(body.password, user.hashed_password):
+        raise HTTPException(401, "Incorrect email or password.")
+    return _issue_tokens(user, response, db)
+
+
+@app.post("/auth/google", response_model=TokenResponse)
+def google_auth(body: GoogleAuthRequest, response: Response, db: Session = Depends(get_db)):
+    claims = auth.verify_google_id_token(body.id_token)
+    google_id = claims["sub"]
+    email = claims["email"].strip().lower()
+
+    user = db.query(User).filter(User.google_id == google_id).first()
+    if not user:
+        # Link to an existing email/password account with the same email,
+        # otherwise this is a brand new user.
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            user.google_id = google_id
+        else:
+            user = User(email=email, google_id=google_id, name=claims.get("name"))
+            db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    return _issue_tokens(user, response, db)
+
+
+@app.post("/auth/refresh", response_model=TokenResponse)
+def refresh(request: Request, response: Response, db: Session = Depends(get_db)):
+    raw_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    if not raw_token:
+        raise HTTPException(401, "No refresh token provided.")
+
+    result = auth.rotate_refresh_token(db, raw_token)
+    if not result:
+        response.delete_cookie(REFRESH_COOKIE_NAME, path="/auth")
+        raise HTTPException(401, "Refresh token is invalid or expired. Please log in again.")
+
+    new_refresh_token, user = result
+    _set_refresh_cookie(response, new_refresh_token)
+    access_token = auth.create_access_token(user.id)
+    return TokenResponse(access_token=access_token, user=UserOut(id=user.id, email=user.email, name=user.name))
+
+
+@app.post("/auth/logout")
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    raw_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    if raw_token:
+        auth.revoke_refresh_token(db, raw_token)
+    response.delete_cookie(REFRESH_COOKIE_NAME, path="/auth")
+    return {"status": "success"}
+
+
+@app.get("/auth/me", response_model=UserOut)
+def get_me(current_user: User = Depends(get_current_user)):
+    return UserOut(id=current_user.id, email=current_user.email, name=current_user.name)
+
+
+# ---------------------------------------------------------------------------
+# Meetings
+# ---------------------------------------------------------------------------
+
+
+def _authorize_media_access(
+    meeting: Optional[Meeting], meeting_id: int, current_user: Optional[User], token: Optional[str]
+) -> Meeting:
+    if not meeting:
+        raise HTTPException(404, "Meeting not found")
+    owned_by_header_auth = current_user is not None and meeting.owner_id == current_user.id
+    owned_by_media_token = token is not None and auth.verify_media_token(token, meeting_id)
+    if not (owned_by_header_auth or owned_by_media_token):
+        raise HTTPException(404, "Meeting not found")
+    return meeting
+
+
 @app.post("/meetings/upload", dependencies=[Depends(_upload_rate_limit)])
 async def upload_meeting(
-    background_tasks: BackgroundTasks, file: UploadFile = File(...), db: Session = Depends(get_db)
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Accepts an audio file, saves it, and schedules transcription + summarization
@@ -108,7 +262,7 @@ async def upload_meeting(
         os.remove(save_path)
         raise HTTPException(413, f"Audio file exceeds the {settings.max_upload_mb}MB upload limit.")
 
-    meeting = Meeting(audio_path=save_path, status="transcribing")
+    meeting = Meeting(owner_id=current_user.id, audio_path=save_path, status="transcribing")
     db.add(meeting)
     db.commit()
     db.refresh(meeting)
@@ -123,28 +277,56 @@ def list_meetings(
     response: Response,
     limit: int = Query(default=None, ge=1, le=settings.max_page_size),
     offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     effective_limit = limit or settings.default_page_size
-    total = db.query(Meeting).count()
-    meetings = db.query(Meeting).order_by(Meeting.created_at.desc()).offset(offset).limit(effective_limit).all()
+    base_query = db.query(Meeting).filter(Meeting.owner_id == current_user.id)
+    total = base_query.count()
+    meetings = base_query.order_by(Meeting.created_at.desc()).offset(offset).limit(effective_limit).all()
     response.headers["X-Total-Count"] = str(total)
     return [_meeting_to_dict(m) for m in meetings]
 
 
 @app.get("/meetings/{meeting_id}")
-def get_meeting(meeting_id: int, db: Session = Depends(get_db)):
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+def get_meeting(meeting_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.owner_id == current_user.id).first()
     if not meeting:
         raise HTTPException(404, "Meeting not found")
     return _meeting_to_dict(meeting)
 
 
-@app.get("/meetings/{meeting_id}/pdf")
-def get_meeting_pdf(meeting_id: int, lang: str = "en", db: Session = Depends(get_db)):
+@app.get("/meetings/{meeting_id}/audio")
+def get_meeting_audio(
+    meeting_id: int,
+    token: Optional[str] = None,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    """
+    Serves a meeting's audio file. <audio src> can't carry an Authorization
+    header, so this also accepts a short-lived per-meeting `token` (see
+    _meeting_to_dict's media_token) as an alternative to header-based auth.
+    """
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
-    if not meeting:
-        raise HTTPException(404, "Meeting not found")
+    meeting = _authorize_media_access(meeting, meeting_id, current_user, token)
+
+    if not meeting.audio_path or not os.path.exists(meeting.audio_path):
+        raise HTTPException(404, "Audio file not found")
+
+    return FileResponse(meeting.audio_path)
+
+
+@app.get("/meetings/{meeting_id}/pdf")
+def get_meeting_pdf(
+    meeting_id: int,
+    lang: str = "en",
+    token: Optional[str] = None,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    meeting = _authorize_media_access(meeting, meeting_id, current_user, token)
 
     from app.services.pdf_generator import generate_pdf
 
@@ -160,11 +342,13 @@ class GlobalChatRequest(BaseModel):
 
 
 @app.post("/meetings/global/chat", dependencies=[Depends(_ai_rate_limit)])
-def global_chat(request: GlobalChatRequest, db: Session = Depends(get_db)):
+def global_chat(
+    request: GlobalChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     from app.services.memory import answer_global_chat
 
     try:
-        answer = answer_global_chat(request.message, db)
+        answer = answer_global_chat(request.message, current_user.id, db)
         return {"response": answer}
     except Exception:
         logger.error("Global chat failed", exc_info=True)
@@ -176,8 +360,13 @@ class ChatRequest(BaseModel):
 
 
 @app.post("/meetings/{meeting_id}/chat", dependencies=[Depends(_ai_rate_limit)])
-def chat_about_meeting(meeting_id: int, request: ChatRequest, db: Session = Depends(get_db)):
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+def chat_about_meeting(
+    meeting_id: int,
+    request: ChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.owner_id == current_user.id).first()
     if not meeting:
         raise HTTPException(404, "Meeting not found")
     if not meeting.transcript:
@@ -194,15 +383,17 @@ def chat_about_meeting(meeting_id: int, request: ChatRequest, db: Session = Depe
 
 
 @app.get("/meetings/{meeting_id}/metadata")
-def get_meeting_metadata(meeting_id: int, db: Session = Depends(get_db)):
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+def get_meeting_metadata(
+    meeting_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.owner_id == current_user.id).first()
     if not meeting:
         raise HTTPException(404, "Meeting not found")
 
     from app.services.memory import get_meeting_entities_and_related
 
     try:
-        metadata = get_meeting_entities_and_related(meeting_id, db)
+        metadata = get_meeting_entities_and_related(meeting_id, current_user.id, db)
         return metadata
     except Exception:
         logger.error("Failed to retrieve metadata for meeting_id=%s", meeting_id, exc_info=True)
@@ -214,8 +405,13 @@ class RegenerateRequest(BaseModel):
 
 
 @app.post("/meetings/{meeting_id}/regenerate", dependencies=[Depends(_ai_rate_limit)])
-def regenerate_meeting_analysis(meeting_id: int, request: RegenerateRequest, db: Session = Depends(get_db)):
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+def regenerate_meeting_analysis(
+    meeting_id: int,
+    request: RegenerateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.owner_id == current_user.id).first()
     if not meeting:
         raise HTTPException(404, "Meeting not found")
     if not meeting.transcript:
@@ -253,8 +449,13 @@ class RenameRequest(BaseModel):
 
 
 @app.put("/meetings/{meeting_id}")
-def rename_meeting(meeting_id: int, request: RenameRequest, db: Session = Depends(get_db)):
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+def rename_meeting(
+    meeting_id: int,
+    request: RenameRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.owner_id == current_user.id).first()
     if not meeting:
         raise HTTPException(404, "Meeting not found")
     meeting.title = request.title
@@ -263,8 +464,8 @@ def rename_meeting(meeting_id: int, request: RenameRequest, db: Session = Depend
 
 
 @app.delete("/meetings/{meeting_id}")
-def delete_meeting(meeting_id: int, db: Session = Depends(get_db)):
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+def delete_meeting(meeting_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.owner_id == current_user.id).first()
     if not meeting:
         raise HTTPException(404, "Meeting not found")
     db.delete(meeting)
@@ -280,6 +481,7 @@ def _meeting_to_dict(meeting: Meeting) -> dict:
         "recording_type": meeting.recording_type or "Unknown",
         "confidence": meeting.confidence if meeting.confidence is not None else 100,
         "audio_filename": os.path.basename(meeting.audio_path) if meeting.audio_path else None,
+        "media_token": auth.create_media_token(meeting.id),
         "transcript": meeting.transcript,
         "summary": meeting.summary,
         "key_points": json.loads(meeting.key_points) if meeting.key_points else [],

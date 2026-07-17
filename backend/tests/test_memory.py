@@ -53,9 +53,10 @@ def test_entity_extraction_and_storage(client, db_session):
         )
 
 
-def test_related_meetings_recommendations(client, db_session):
+def test_related_meetings_recommendations(client, db_session, test_user):
     # Insert two meetings
     m1 = Meeting(
+        owner_id=test_user.id,
         title="M1",
         audio_path="a.wav",
         transcript="X",
@@ -66,6 +67,7 @@ def test_related_meetings_recommendations(client, db_session):
         status="done",
     )
     m2 = Meeting(
+        owner_id=test_user.id,
         title="M2",
         audio_path="b.wav",
         transcript="X",
@@ -79,7 +81,7 @@ def test_related_meetings_recommendations(client, db_session):
     db_session.commit()
 
     # Create shared entity
-    ent = Entity(name="Docker", category="technologies")
+    ent = Entity(name="Docker", category="technologies", owner_id=test_user.id)
     db_session.add(ent)
     db_session.commit()
 
@@ -91,7 +93,7 @@ def test_related_meetings_recommendations(client, db_session):
 
     from app.services.memory import get_meeting_entities_and_related
 
-    meta = get_meeting_entities_and_related(m1.id, db_session)
+    meta = get_meeting_entities_and_related(m1.id, test_user.id, db_session)
 
     assert len(meta["technologies"]) == 1
     assert meta["technologies"][0]["name"] == "Docker"
@@ -100,8 +102,9 @@ def test_related_meetings_recommendations(client, db_session):
     assert meta["related_meetings"][0]["shared_count"] == 1
 
 
-def test_global_chat_route(client, db_session):
+def test_global_chat_route(client, db_session, test_user):
     m = Meeting(
+        owner_id=test_user.id,
         title="Knowledge Base Meeting",
         audio_path="a.wav",
         transcript="We finalized using Kubernetes.",

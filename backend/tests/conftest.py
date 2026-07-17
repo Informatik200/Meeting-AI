@@ -19,7 +19,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.database import Base, get_db
+from app.auth import get_current_user, get_current_user_optional, hash_password
+from app.database import Base, User, get_db
 from app.database import SessionLocal as AppSessionLocal
 from app.main import app
 
@@ -66,8 +67,52 @@ def db_session_fixture():
         Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture(name="test_user")
+def test_user_fixture(db_session):
+    """The default user that the `client` fixture is authenticated as."""
+    user = User(
+        email="testuser@example.com",
+        hashed_password=hash_password("testpassword123"),
+        name="Test User",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
 @pytest.fixture(name="client")
-def client_fixture(db_session):
+def client_fixture(db_session, test_user):
+    """A TestClient auto-authenticated as `test_user`, via dependency overrides
+    (same pattern as get_db below) rather than real tokens - this is what
+    lets the ~30 pre-existing, auth-agnostic tests keep working unmodified.
+    Use `real_auth_client` instead when testing the auth flow itself."""
+
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    def override_get_current_user():
+        return test_user
+
+    def override_get_current_user_optional():
+        return test_user
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_user_optional] = override_get_current_user_optional
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(name="real_auth_client")
+def real_auth_client_fixture(db_session):
+    """A TestClient with real authentication - no user is implied, tests must
+    register/login and attach their own Authorization header."""
+
     def override_get_db():
         try:
             yield db_session

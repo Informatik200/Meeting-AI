@@ -12,4 +12,10 @@ services:
         value: 3.10.13
       - key: CORS_ORIGINS
         sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
 

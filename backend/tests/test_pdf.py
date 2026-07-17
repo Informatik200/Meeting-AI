@@ -3,9 +3,10 @@ import json
 from app.database import Meeting
 
 
-def test_export_pdf_success(client, db_session):
+def test_export_pdf_success(client, db_session, test_user):
     # Insert a meeting directly into the DB containing German characters
     meeting = Meeting(
+        owner_id=test_user.id,
         title="German Test Ü Umlaut ß",
         audio_path="dummy.wav",
         transcript="Dies ist ein Transkript mit ä, ö, ü, und ß.",
@@ -31,9 +32,10 @@ def test_export_pdf_success(client, db_session):
     assert pdf_content.startswith(b"%PDF")
 
 
-def test_export_pdf_english(client, db_session):
+def test_export_pdf_english(client, db_session, test_user):
     # Insert a meeting directly into the DB
     meeting = Meeting(
+        owner_id=test_user.id,
         title="English PDF Test",
         audio_path="dummy.wav",
         transcript="Mock transcript text.",

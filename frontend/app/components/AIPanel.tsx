@@ -29,6 +29,7 @@ type Meeting = {
   id: number;
   transcript: string | null;
   summary: string | null;
+  media_token: string;
 };
 
 interface AIPanelProps {
@@ -322,7 +323,7 @@ export default function AIPanel({
           </button>
 
           <a
-            href={`${apiUrl}/meetings/${selected.id}/pdf?lang=${lang}`}
+            href={`${apiUrl}/meetings/${selected.id}/pdf?lang=${lang}&token=${selected.media_token}`}
             download={`meeting-${selected.id}.pdf`}
             className="ai-action-btn"
             style={{ textDecoration: "none" }}

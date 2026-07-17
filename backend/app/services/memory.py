@@ -71,13 +71,20 @@ def extract_and_store_entities(meeting: Meeting, db: Session):
         if not name or category not in valid_categories:
             continue
 
-        # Look up or create unique Entity
+        # Look up or create Entity, scoped to this meeting's owner so two
+        # users mentioning e.g. "Alice" never share (and leak) an entity row.
         entity = (
-            db.query(Entity).filter(func.lower(Entity.name) == func.lower(name), Entity.category == category).first()
+            db.query(Entity)
+            .filter(
+                func.lower(Entity.name) == func.lower(name),
+                Entity.category == category,
+                Entity.owner_id == meeting.owner_id,
+            )
+            .first()
         )
 
         if not entity:
-            entity = Entity(name=name, category=category)
+            entity = Entity(name=name, category=category, owner_id=meeting.owner_id)
             db.add(entity)
             db.commit()
             db.refresh(entity)
@@ -91,7 +98,7 @@ def extract_and_store_entities(meeting: Meeting, db: Session):
             db.commit()
 
 
-def get_meeting_entities_and_related(meeting_id: int, db: Session) -> dict:
+def get_meeting_entities_and_related(meeting_id: int, owner_id: int, db: Session) -> dict:
     """
     Retrieves the entities linked to a meeting grouped by category,
     and lists related meetings sharing entities, sorted by shared entity count.
@@ -136,7 +143,9 @@ def get_meeting_entities_and_related(meeting_id: int, db: Session) -> dict:
 
         for meet_id, count in shared_counts:
             meet = db.query(Meeting).get(meet_id)
-            if meet and meet.status == "done":
+            # Entities are already owner-scoped, so this should never cross
+            # users - checked explicitly anyway as defense in depth.
+            if meet and meet.status == "done" and meet.owner_id == owner_id:
                 related.append({"id": meet.id, "title": meet.title, "shared_count": count})
 
     return {
@@ -149,12 +158,13 @@ def get_meeting_entities_and_related(meeting_id: int, db: Session) -> dict:
     }
 
 
-def answer_global_chat(message: str, db: Session) -> str:
+def answer_global_chat(message: str, owner_id: int, db: Session) -> str:
     """
     Answers user questions spanning the entire knowledge base (cross-meeting search).
     """
-    # Gather summaries and actions for context
-    meetings = db.query(Meeting).filter(Meeting.status == "done").all()
+    # Gather summaries and actions for context - scoped to the requesting
+    # user's own recordings only.
+    meetings = db.query(Meeting).filter(Meeting.status == "done", Meeting.owner_id == owner_id).all()
 
     context_blocks = []
     for m in meetings:

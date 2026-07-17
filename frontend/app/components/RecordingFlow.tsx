@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { apiFetch } from "../lib/auth";
 
 type ActionItem = { task: string; owner: string | null; due: string | null };
 
@@ -11,6 +12,7 @@ type Meeting = {
   recording_type: string;
   confidence: number;
   audio_filename: string | null;
+  media_token: string;
   transcript: string | null;
   summary: string | null;
   key_points: string[];
@@ -252,7 +254,7 @@ export default function RecordingFlow({
       }
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 
-      const res = await fetch(`${apiUrl}/meetings/${meetingId}`);
+      const res = await apiFetch(`${apiUrl}/meetings/${meetingId}`);
       if (!res.ok) continue;
 
       const data: Meeting = await res.json();
@@ -281,7 +283,7 @@ export default function RecordingFlow({
       const form = new FormData();
       form.append("file", audioFile);
 
-      const response = await fetch(`${apiUrl}/meetings/upload`, {
+      const response = await apiFetch(`${apiUrl}/meetings/upload`, {
         method: "POST",
         body: form,
       });

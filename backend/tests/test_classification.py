@@ -86,9 +86,10 @@ def test_classification_unknown_fallback(client, db_session):
         assert result["confidence"] == 100
 
 
-def test_manual_override_regenerate(client, db_session):
+def test_manual_override_regenerate(client, db_session, test_user):
     # Insert meeting into DB
     meeting = Meeting(
+        owner_id=test_user.id,
         title="Original Title",
         audio_path="dummy.wav",
         transcript="We need to finalize the product release date.",
@@ -139,8 +140,9 @@ def test_regenerate_not_found(client):
     assert response.json()["detail"] == "Meeting not found"
 
 
-def test_regenerate_invalid_type(client, db_session):
+def test_regenerate_invalid_type(client, db_session, test_user):
     meeting = Meeting(
+        owner_id=test_user.id,
         title="Title",
         audio_path="dummy.wav",
         transcript="Some transcript.",

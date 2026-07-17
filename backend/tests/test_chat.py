@@ -4,8 +4,9 @@ from unittest.mock import MagicMock, patch
 from app.database import Meeting
 
 
-def test_chat_success(client, db_session):
+def test_chat_success(client, db_session, test_user):
     meeting = Meeting(
+        owner_id=test_user.id,
         title="Chat Test Meeting",
         audio_path="dummy.wav",
         transcript="The project deadline is set for next Monday at 5 PM.",
@@ -37,8 +38,9 @@ def test_chat_success(client, db_session):
         assert "The project deadline is set for next Monday at 5 PM." in kwargs["contents"]
 
 
-def test_chat_no_transcript(client, db_session):
+def test_chat_no_transcript(client, db_session, test_user):
     meeting = Meeting(
+        owner_id=test_user.id,
         title="Chat Test No Transcript",
         audio_path="dummy.wav",
         transcript=None,
