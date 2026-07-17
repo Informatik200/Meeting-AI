@@ -11,8 +11,27 @@ class Settings(BaseSettings):
     whisper_model_size: str = "small"
     upload_dir: str = "./uploads"
 
+    # Comma-separated list of allowed frontend origins. Defaults to local dev;
+    # set CORS_ORIGINS in production to the real frontend domain(s).
+    cors_origins: str = "http://localhost:3000"
+
+    max_upload_mb: int = 200
+
+    log_level: str = "INFO"
+
+    rate_limit_enabled: bool = True
+    rate_limit_upload_per_minute: int = 10
+    rate_limit_ai_per_minute: int = 20
+
+    default_page_size: int = 100
+    max_page_size: int = 200
+
     class Config:
         env_file = ".env"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 settings = Settings()

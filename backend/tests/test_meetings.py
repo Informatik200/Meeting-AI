@@ -1,10 +1,32 @@
 import io
 
+from app.database import Meeting
+
 
 def test_list_meetings_empty(client):
     response = client.get("/meetings")
     assert response.status_code == 200
     assert response.json() == []
+    assert response.headers["X-Total-Count"] == "0"
+
+
+def test_list_meetings_pagination(client, db_session):
+    for i in range(5):
+        db_session.add(Meeting(title=f"Meeting {i}", audio_path=f"/tmp/{i}.wav", status="done"))
+    db_session.commit()
+
+    response = client.get("/meetings", params={"limit": 2, "offset": 0})
+    assert response.status_code == 200
+    assert response.headers["X-Total-Count"] == "5"
+    assert len(response.json()) == 2
+
+    response = client.get("/meetings", params={"limit": 2, "offset": 4})
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+    # No params: defaults still return everything within the default page size
+    response = client.get("/meetings")
+    assert len(response.json()) == 5
 
 
 def test_upload_meeting_validation_error(client):
@@ -82,3 +104,17 @@ def test_upload_meeting_processing_failure(client, mock_gemini, mock_whisper):
 
     assert response.status_code == 500
     assert "Processing failed" in response.json()["detail"]
+
+
+def test_upload_meeting_rejects_oversized_file(client):
+    from app.config import settings
+
+    original_max = settings.max_upload_mb
+    settings.max_upload_mb = 0  # anything above 0 bytes now exceeds the cap
+    try:
+        oversized_audio = io.BytesIO(b"RIFF" + b"\x00" * 2000)
+        response = client.post("/meetings/upload", files={"file": ("big.wav", oversized_audio, "audio/wav")})
+        assert response.status_code == 413
+        assert "upload limit" in response.json()["detail"]
+    finally:
+        settings.max_upload_mb = original_max
