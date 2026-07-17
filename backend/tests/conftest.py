@@ -71,7 +71,7 @@ def client_fixture(db_session):
 @pytest.fixture
 def mock_gemini():
     """Mock generative model response to prevent actual Gemini API calls."""
-    with patch("app.services.ai_summary._get_client") as mock_get_client:
+    with patch("app.services.ai_summary.get_gemini_client") as mock_get_client:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.text = """

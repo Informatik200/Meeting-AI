@@ -7,8 +7,8 @@ from app.database import Meeting
 def test_classification_and_summary_success(client, db_session):
     # Setup mock responses for classification and summarization
     with (
-        patch("app.services.classification._get_client") as mock_get_client,
-        patch("app.services.ai_summary._get_client") as mock_get_summary_client,
+        patch("app.services.classification.get_gemini_client") as mock_get_client,
+        patch("app.services.ai_summary.get_gemini_client") as mock_get_summary_client,
         patch("app.main.transcribe_audio") as mock_transcribe,
     ):
         # Audio file mock
@@ -49,8 +49,8 @@ def test_classification_and_summary_success(client, db_session):
 
 def test_classification_unknown_fallback(client, db_session):
     with (
-        patch("app.services.classification._get_client") as mock_get_client,
-        patch("app.services.ai_summary._get_client") as mock_get_summary_client,
+        patch("app.services.classification.get_gemini_client") as mock_get_client,
+        patch("app.services.ai_summary.get_gemini_client") as mock_get_summary_client,
         patch("app.main.transcribe_audio") as mock_transcribe,
     ):
         mock_transcribe.return_value = "Hello."
@@ -100,7 +100,7 @@ def test_manual_override_regenerate(client, db_session):
     db_session.commit()
     db_session.refresh(meeting)
 
-    with patch("app.services.ai_summary._get_client") as mock_get_client:
+    with patch("app.services.ai_summary.get_gemini_client") as mock_get_client:
         mock_client = MagicMock()
         mock_sum_response = MagicMock()
         mock_sum_response.text = json.dumps(

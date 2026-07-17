@@ -87,7 +87,6 @@ export default function AudioPlayer({
         
         // If content length > 15MB, do not decode. Keep beautiful fallback waveform.
         if (contentLength && parseInt(contentLength, 10) > 15000000) {
-          console.log("Audio file too large for browser decode, using deterministic waveform.");
           return;
         }
 
