@@ -23,6 +23,7 @@ type Meeting = {
   recording_type: string;
   confidence: number;
   audio_filename: string | null;
+  media_token: string;
   transcript: string | null;
   summary: string | null;
   key_points: string[];
@@ -212,7 +213,7 @@ export default function RecordingWorkspace({
         {selected.audio_filename && selected.status === "done" && (
           <div className="rw-audio-wrapper">
             <AudioPlayer
-              src={`${apiUrl}/audio/${selected.audio_filename}`}
+              src={`${apiUrl}/meetings/${selected.id}/audio?token=${selected.media_token}`}
               ariaLabel="Play recording audio"
             />
           </div>

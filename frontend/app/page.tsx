@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import RecordingWorkspace from "./components/RecordingWorkspace";
 import AIPanel from "./components/AIPanel";
 import RecordingFlow from "./components/RecordingFlow";
+import AuthScreen from "./components/AuthScreen";
+import { API_URL, apiFetch, logout as apiLogout, refreshSession, type AuthUser } from "./lib/auth";
 
 type ActionItem = { task: string; owner: string | null; due: string | null };
 type Meeting = {
@@ -13,6 +15,7 @@ type Meeting = {
   recording_type: string;
   confidence: number;
   audio_filename: string | null;
+  media_token: string;
   transcript: string | null;
   summary: string | null;
   key_points: string[];
@@ -20,8 +23,6 @@ type Meeting = {
   action_items: ActionItem[];
   created_at: string | null;
 };
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const translations = {
   en: {
@@ -185,6 +186,8 @@ function formatDate(value: string | null, lang: string) {
 
 export default function Home() {
   const [lang, setLang] = useState<"en" | "de">("en");
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [selected, setSelected] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
@@ -249,6 +252,24 @@ export default function Home() {
     }
   }, []);
 
+  // Silently restore a session from the httpOnly refresh cookie on first
+  // load, so users don't have to log in again on every visit.
+  useEffect(() => {
+    (async () => {
+      const user = await refreshSession();
+      setAuthUser(user);
+      setAuthChecked(true);
+    })();
+  }, []);
+
+  async function handleLogout() {
+    await apiLogout();
+    setAuthUser(null);
+    setMeetings([]);
+    setSelected(null);
+    setActiveTab("home");
+  }
+
   function changeLanguage(newLang: "en" | "de") {
     setLang(newLang);
     localStorage.setItem("meeting-ai-lang", newLang);
@@ -257,7 +278,7 @@ export default function Home() {
   // Fetch meeting memory metadata from backend
   async function loadMeetingMetadata(meetingId: number) {
     try {
-      const response = await fetch(`${API_URL}/meetings/${meetingId}/metadata`);
+      const response = await apiFetch(`${API_URL}/meetings/${meetingId}/metadata`);
       if (!response.ok) throw new Error();
       const data = await response.json();
       setPeopleTags(data.people || []);
@@ -389,7 +410,7 @@ export default function Home() {
   async function handleRenameSave() {
     if (renameId === null || !renameTitle.trim()) return;
     try {
-      const res = await fetch(`${API_URL}/meetings/${renameId}`, {
+      const res = await apiFetch(`${API_URL}/meetings/${renameId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: renameTitle.trim() })
@@ -408,7 +429,7 @@ export default function Home() {
   async function handleDeleteConfirm() {
     if (deleteId === null) return;
     try {
-      const res = await fetch(`${API_URL}/meetings/${deleteId}`, { method: "DELETE" });
+      const res = await apiFetch(`${API_URL}/meetings/${deleteId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
       const nextMeetings = meetings.filter((m) => m.id !== deleteId);
       setMeetings(nextMeetings);
@@ -443,7 +464,7 @@ export default function Home() {
     if (!selected) return;
     setTypeLoading(true);
     try {
-      const response = await fetch(`${API_URL}/meetings/${selected.id}/regenerate`, {
+      const response = await apiFetch(`${API_URL}/meetings/${selected.id}/regenerate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recording_type: newType })
@@ -480,7 +501,7 @@ export default function Home() {
       : `${API_URL}/meetings/${selected.id}/chat`;
 
     try {
-      const response = await fetch(chatEndpoint, {
+      const response = await apiFetch(chatEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: textToSend })
@@ -501,7 +522,7 @@ export default function Home() {
   async function loadMeetings() {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/meetings`);
+      const response = await apiFetch(`${API_URL}/meetings`);
       if (!response.ok) throw new Error(t.loadMeetingsError);
       const data: Meeting[] = await response.json();
       setMeetings(data);
@@ -514,8 +535,10 @@ export default function Home() {
     }
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { void loadMeetings(); }, [lang]);
+  useEffect(() => {
+    if (authUser) void loadMeetings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang, authUser]);
 
 
 
@@ -527,6 +550,14 @@ export default function Home() {
       (meeting.transcript && meeting.transcript.toLowerCase().includes(query));
     return matchQuery;
   });
+
+  if (!authChecked) {
+    return <div className="auth-screen" aria-busy="true" />;
+  }
+
+  if (!authUser) {
+    return <AuthScreen lang={lang} onAuthenticated={setAuthUser} />;
+  }
 
   return (
     <div className="workspace-layout">
@@ -676,6 +707,15 @@ export default function Home() {
                   <option value="en">English</option>
                   <option value="de">Deutsch</option>
                 </select>
+              </div>
+              <div className="settings-field">
+                <label>{lang === "de" ? "Angemeldet als" : "Signed in as"}</label>
+                <p className="muted" style={{ margin: "0 0 12px", fontSize: "13.5px" }}>
+                  {authUser.name ? `${authUser.name} (${authUser.email})` : authUser.email}
+                </p>
+                <button className="btn-primary btn-ghost" onClick={() => void handleLogout()}>
+                  {lang === "de" ? "Abmelden" : "Log out"}
+                </button>
               </div>
             </div>
           </div>

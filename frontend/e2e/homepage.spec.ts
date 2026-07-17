@@ -1,8 +1,22 @@
 import { test, expect } from "@playwright/test";
 
+const FAKE_USER = { id: 1, email: "test@example.com", name: "Test User" };
+
 test.describe("Orivon Frontend E2E Tests", () => {
-  // Mock GET /meetings on every page load to return empty list
+  // Every test starts "already logged in": the app silently calls
+  // POST /auth/refresh on mount (simulating a returning user with a valid
+  // refresh cookie) and GET /meetings on every page load. Tests that
+  // specifically exercise the login/register screen override the
+  // /auth/refresh mock with their own (last-registered route wins).
   test.beforeEach(async ({ page }) => {
+    await page.route("**/auth/refresh", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ access_token: "fake-test-access-token", token_type: "bearer", user: FAKE_USER }),
+      });
+    });
+
     await page.route("**/meetings", async (route) => {
       await route.fulfill({
         status: 200,
@@ -293,5 +307,75 @@ test.describe("Orivon Frontend E2E Tests", () => {
 
     // Polling eventually surfaces the completed meeting
     await expect(page.locator("h1:has-text('Background Processed Meeting')")).toBeVisible({ timeout: 15000 });
+  });
+
+  test("9. unauthenticated visitor sees the login screen, not the workspace", async ({ page }) => {
+    // Override this test's /auth/refresh to report "no session" instead of
+    // the beforeEach default.
+    await page.route("**/auth/refresh", async (route) => {
+      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "No refresh token provided." }) });
+    });
+
+    await page.goto("/");
+
+    await expect(page.locator(".auth-screen")).toBeVisible();
+    await expect(page.locator(".auth-brand")).toContainText("ORIVON");
+    await expect(page.locator("#auth-email")).toBeVisible();
+    await expect(page.locator(".workspace-layout")).toHaveCount(0);
+  });
+
+  test("10. registering a new account logs the user in", async ({ page }) => {
+    await page.route("**/auth/refresh", async (route) => {
+      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "No refresh token provided." }) });
+    });
+    await page.route("**/auth/register", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ access_token: "fresh-token", token_type: "bearer", user: FAKE_USER }),
+      });
+    });
+
+    await page.goto("/");
+    await expect(page.locator(".auth-screen")).toBeVisible();
+
+    await page.locator("text=New here? Create an account").click();
+    await page.locator("#auth-email").fill("newuser@example.com");
+    await page.locator("#auth-password").fill("a-secure-password");
+    await page.locator(".auth-submit").click();
+
+    await expect(page.locator(".workspace-layout")).toBeVisible();
+    await expect(page.locator("a.sidebar-brand")).toContainText("ORIVON");
+  });
+
+  test("11. logging in with the wrong password shows an error", async ({ page }) => {
+    await page.route("**/auth/refresh", async (route) => {
+      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "No refresh token provided." }) });
+    });
+    await page.route("**/auth/login", async (route) => {
+      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "Incorrect email or password." }) });
+    });
+
+    await page.goto("/");
+    await page.locator("#auth-email").fill("test@example.com");
+    await page.locator("#auth-password").fill("wrong-password");
+    await page.locator(".auth-submit").click();
+
+    await expect(page.locator(".auth-form .error")).toContainText("Incorrect email or password.");
+    await expect(page.locator(".workspace-layout")).toHaveCount(0);
+  });
+
+  test("12. logging out returns to the login screen", async ({ page }) => {
+    await page.route("**/auth/logout", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success" }) });
+    });
+
+    await page.goto("/");
+    await expect(page.locator(".workspace-layout")).toBeVisible();
+
+    await page.locator("text=Settings").click();
+    await page.locator("button:has-text('Log out')").click();
+
+    await expect(page.locator(".auth-screen")).toBeVisible();
   });
 });
