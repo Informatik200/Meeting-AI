@@ -14,8 +14,4 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-env = [
-    "GEMINI_API_KEY=",
-    "DATABASE_URL=sqlite:///:memory:",
-    "WHISPER_MODEL_SIZE=tiny",
-]
+
