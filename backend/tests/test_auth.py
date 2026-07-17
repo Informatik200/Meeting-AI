@@ -113,6 +113,93 @@ def test_me_endpoint_returns_current_user(real_auth_client):
     assert response.json()["email"] == "alice@example.com"
 
 
+def test_update_profile_changes_name(real_auth_client):
+    data = register(real_auth_client)
+    response = real_auth_client.patch(
+        "/auth/me", json={"name": "Alice Updated"}, headers=auth_headers(data["access_token"])
+    )
+    assert response.status_code == 200
+    assert response.json()["name"] == "Alice Updated"
+
+    me = real_auth_client.get("/auth/me", headers=auth_headers(data["access_token"]))
+    assert me.json()["name"] == "Alice Updated"
+
+
+def test_update_profile_rejects_empty_name(real_auth_client):
+    data = register(real_auth_client)
+    response = real_auth_client.patch("/auth/me", json={"name": "   "}, headers=auth_headers(data["access_token"]))
+    assert response.status_code == 400
+
+
+def test_update_profile_requires_auth(real_auth_client):
+    response = real_auth_client.patch("/auth/me", json={"name": "Nope"})
+    assert response.status_code == 401
+
+
+def test_change_password_success_and_relogin(real_auth_client):
+    data = register(real_auth_client)
+    response = real_auth_client.post(
+        "/auth/change-password",
+        json={"current_password": VALID_PASSWORD, "new_password": "a-brand-new-password"},
+        headers=auth_headers(data["access_token"]),
+    )
+    assert response.status_code == 200
+
+    old_login = real_auth_client.post("/auth/login", json={"email": "alice@example.com", "password": VALID_PASSWORD})
+    assert old_login.status_code == 401
+
+    new_login = real_auth_client.post(
+        "/auth/login", json={"email": "alice@example.com", "password": "a-brand-new-password"}
+    )
+    assert new_login.status_code == 200
+
+
+def test_change_password_rejects_wrong_current_password(real_auth_client):
+    data = register(real_auth_client)
+    response = real_auth_client.post(
+        "/auth/change-password",
+        json={"current_password": "totally-wrong", "new_password": "a-brand-new-password"},
+        headers=auth_headers(data["access_token"]),
+    )
+    assert response.status_code == 401
+
+
+def test_change_password_rejects_short_new_password(real_auth_client):
+    data = register(real_auth_client)
+    response = real_auth_client.post(
+        "/auth/change-password",
+        json={"current_password": VALID_PASSWORD, "new_password": "short"},
+        headers=auth_headers(data["access_token"]),
+    )
+    assert response.status_code == 400
+
+
+def test_change_password_google_only_account_can_set_first_password(real_auth_client):
+    from unittest.mock import patch as mock_patch
+
+    with mock_patch("app.auth.verify_google_id_token") as mock_verify:
+        mock_verify.return_value = {
+            "sub": "google-uid-pw",
+            "email": "googlepw@example.com",
+            "email_verified": True,
+            "name": "Google PW User",
+        }
+        data = real_auth_client.post("/auth/google", json={"id_token": "fake"}).json()
+
+    # No current_password needed - there isn't one yet.
+    response = real_auth_client.post(
+        "/auth/change-password",
+        json={"new_password": "first-real-password"},
+        headers=auth_headers(data["access_token"]),
+    )
+    assert response.status_code == 200
+
+    login = real_auth_client.post(
+        "/auth/login", json={"email": "googlepw@example.com", "password": "first-real-password"}
+    )
+    assert login.status_code == 200
+
+
 def test_uploaded_meeting_is_owned_by_uploader(real_auth_client, db_session, mock_gemini, mock_whisper):
     import io
 

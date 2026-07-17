@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Loader2, Pause, Play } from "lucide-react";
 
 interface AudioPlayerProps {
   src: string;
   ariaLabel?: string;
-  audioRef?: React.RefObject<HTMLAudioElement | null>;
 }
 
 function formatTime(s: number): string {
@@ -15,35 +15,24 @@ function formatTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-export default function AudioPlayer({
-  src,
-  ariaLabel = "Play audio recording",
-  audioRef: externalAudioRef,
-}: AudioPlayerProps) {
-  const localAudioRef = useRef<HTMLAudioElement>(null);
-  const audioRef = externalAudioRef || localAudioRef;
+const BAR_COUNT = 64;
+const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+
+export default function AudioPlayer({ src, ariaLabel = "Play audio recording" }: AudioPlayerProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [muted, setMuted] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [loading, setLoading] = useState(true);
   const [audioError, setAudioError] = useState(false);
   const [waveform, setWaveform] = useState<number[]>([]);
 
-  // Refs for tracking playback state in global keyboard handler without re-binding
-  const playingRef = useRef(playing);
-  playingRef.current = playing;
-
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio || audioError) return;
-    if (playing) {
-      audio.pause();
-    } else {
-      void audio.play().catch(() => setAudioError(true));
-    }
+    if (playing) audio.pause();
+    else void audio.play().catch(() => setAudioError(true));
   };
 
   const seekRelative = (seconds: number) => {
@@ -52,86 +41,55 @@ export default function AudioPlayer({
     audio.currentTime = Math.max(0, Math.min(audio.duration, audio.currentTime + seconds));
   };
 
-  // Generate waveform from audio dynamically with size-safe decoding limits
+  // Waveform: deterministic fallback, upgraded to a real decode when small enough.
   useEffect(() => {
-    const generateFallbackWaveform = () => {
+    const fallback = () => {
       const bars: number[] = [];
       let hash = 0;
-      for (let i = 0; i < src.length; i++) {
-        hash = src.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      for (let i = 0; i < 80; i++) {
-        const val = Math.abs(Math.sin(hash + i) * 22) + 6;
-        bars.push(Math.round(val));
-      }
+      for (let i = 0; i < src.length; i++) hash = src.charCodeAt(i) + ((hash << 5) - hash);
+      for (let i = 0; i < BAR_COUNT; i++) bars.push(Math.abs(Math.sin(hash + i * 1.3)) * 0.7 + 0.25);
       setWaveform(bars);
     };
+    fallback();
 
-    generateFallbackWaveform();
-
-    const AudioContextClass = typeof window !== "undefined"
-      ? (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)
-      : null;
-
-    if (!AudioContextClass) {
-      return;
-    }
-
+    const AudioCtx =
+      typeof window !== "undefined"
+        ? window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+        : null;
+    if (!AudioCtx) return;
     const controller = new AbortController();
 
-    const fetchAndDecodeAudio = async () => {
+    (async () => {
       try {
-        // Fetch only headers first to check Content-Length to avoid OOM crash on giant files
-        const headRes = await fetch(src, { method: "HEAD", signal: controller.signal }).catch(() => null);
-        const contentLength = headRes?.headers.get("Content-Length");
-        
-        // If content length > 15MB, do not decode. Keep beautiful fallback waveform.
-        if (contentLength && parseInt(contentLength, 10) > 15000000) {
-          return;
-        }
-
+        const head = await fetch(src, { method: "HEAD", signal: controller.signal }).catch(() => null);
+        const len = head?.headers.get("Content-Length");
+        if (len && parseInt(len, 10) > 15_000_000) return;
         const res = await fetch(src, { signal: controller.signal });
-        const arrayBuffer = await res.arrayBuffer();
-        
-        const audioCtx = new AudioContextClass();
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        const channelData = audioBuffer.getChannelData(0);
-        const step = Math.floor(channelData.length / 80);
+        const buf = await res.arrayBuffer();
+        const ctx = new AudioCtx();
+        const decoded = await ctx.decodeAudioData(buf);
+        const data = decoded.getChannelData(0);
+        const step = Math.floor(data.length / BAR_COUNT);
         const peaks: number[] = [];
-        
-        for (let i = 0; i < 80; i++) {
-          let maxVal = 0;
-          const start = i * step;
-          const end = start + step;
-          for (let j = start; j < end; j++) {
-            if (channelData[j] > maxVal) {
-              maxVal = channelData[j];
-            }
-          }
-          const scaled = Math.round(maxVal * 22) + 6;
-          peaks.push(scaled);
+        for (let i = 0; i < BAR_COUNT; i++) {
+          let max = 0;
+          for (let j = i * step; j < (i + 1) * step; j++) if (data[j] > max) max = data[j];
+          peaks.push(Math.min(1, max * 1.6) * 0.85 + 0.15);
         }
-        
         setWaveform(peaks);
-        await audioCtx.close();
-      } catch (err) {
-        console.warn("Could not generate waveform from file, using fallback:", err);
+        await ctx.close();
+      } catch {
+        /* keep fallback */
       }
-    };
+    })();
 
-    void fetchAndDecodeAudio();
-
-    return () => {
-      controller.abort();
-    };
+    return () => controller.abort();
   }, [src]);
 
-  // Setup event listeners for robust audio lifecycle
+  // Audio element lifecycle
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    // Reset player state on new source
     setPlaying(false);
     setCurrentTime(0);
     setDuration(0);
@@ -142,11 +100,9 @@ export default function AudioPlayer({
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
     const onEnded = () => setPlaying(false);
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const onDurationChange = () => {
-      if (isFinite(audio.duration) && !isNaN(audio.duration)) {
-        setDuration(audio.duration);
-      }
+    const onTime = () => setCurrentTime(audio.currentTime);
+    const onDur = () => {
+      if (isFinite(audio.duration) && !isNaN(audio.duration)) setDuration(audio.duration);
     };
     const onCanPlay = () => setLoading(false);
     const onWaiting = () => setLoading(true);
@@ -154,247 +110,127 @@ export default function AudioPlayer({
       setAudioError(true);
       setLoading(false);
     };
-
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
-    audio.addEventListener("timeupdate", onTimeUpdate);
-    audio.addEventListener("durationchange", onDurationChange);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("durationchange", onDur);
     audio.addEventListener("canplay", onCanPlay);
     audio.addEventListener("waiting", onWaiting);
     audio.addEventListener("error", onError);
-
     return () => {
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
-      audio.removeEventListener("timeupdate", onTimeUpdate);
-      audio.removeEventListener("durationchange", onDurationChange);
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("durationchange", onDur);
       audio.removeEventListener("canplay", onCanPlay);
       audio.removeEventListener("waiting", onWaiting);
       audio.removeEventListener("error", onError);
     };
-  }, [src, audioRef]);
+  }, [src]);
 
-  // Refs for tracking handler methods to avoid effect re-binding
+  // Keyboard shortcuts (ignored while typing in a field)
   const togglePlayRef = useRef(togglePlay);
   togglePlayRef.current = togglePlay;
-
-  const seekRelativeRef = useRef(seekRelative);
-  seekRelativeRef.current = seekRelative;
-
-  // Global Keyboard Shortcuts
+  const seekRef = useRef(seekRelative);
+  seekRef.current = seekRelative;
   useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const active = document.activeElement;
-      if (
-        active &&
-        (active.tagName === "INPUT" ||
-          active.tagName === "TEXTAREA" ||
-          active.hasAttribute("contenteditable"))
-      ) {
-        return;
-      }
-
+    const onKey = (e: KeyboardEvent) => {
+      const a = document.activeElement;
+      if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.hasAttribute("contenteditable"))) return;
       if (e.key === " ") {
         e.preventDefault();
         togglePlayRef.current();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        seekRelativeRef.current(-10);
+        seekRef.current(-10);
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        seekRelativeRef.current(10);
+        seekRef.current(10);
       }
     };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const seekToBar = (index: number) => {
     const audio = audioRef.current;
     if (!audio || !audio.duration) return;
-    const targetTime = parseFloat(e.target.value);
-    audio.currentTime = targetTime;
-    setCurrentTime(targetTime);
+    const target = (index / BAR_COUNT) * audio.duration;
+    audio.currentTime = target;
+    setCurrentTime(target);
   };
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const val = parseFloat(e.target.value);
-    setVolume(val);
-    audio.volume = val;
-    audio.muted = val === 0;
-    setMuted(val === 0);
-  };
+  const progress = duration > 0 ? currentTime / duration : 0;
+  const filledBars = Math.round(progress * BAR_COUNT);
 
-  const handleMuteToggle = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const nextMuted = !muted;
-    audio.muted = nextMuted;
-    setMuted(nextMuted);
+  const cycleSpeed = () => {
+    const idx = SPEEDS.indexOf(playbackRate);
+    const next = SPEEDS[(idx + 1) % SPEEDS.length];
+    setPlaybackRate(next);
+    if (audioRef.current) audioRef.current.playbackRate = next;
   };
-
-  const handleRateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const rate = parseFloat(e.target.value);
-    setPlaybackRate(rate);
-    audio.playbackRate = rate;
-  };
-
-  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const filledBars = Math.round((progressPercentage / 100) * waveform.length);
 
   return (
-    <div className="ap-root" aria-label={ariaLabel}>
-      {/* Native audio element */}
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-soft" aria-label={ariaLabel}>
       <audio ref={audioRef} src={src} preload="metadata" />
-
-      {/* Main Control Panel Row */}
-      <div className="ap-main-row">
-        {/* Play/Pause */}
+      <div className="flex items-center gap-4">
         <button
-          className="ap-play-btn"
           onClick={togglePlay}
+          disabled={audioError}
+          className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-brand-500 text-white shadow-md shadow-brand-500/30 transition-transform hover:scale-105 hover:bg-brand-600 disabled:opacity-50"
           aria-label={playing ? "Pause" : "Play"}
           title={playing ? "Pause (Space)" : "Play (Space)"}
-          disabled={audioError}
-          style={{ width: "42px", height: "42px" }}
         >
           {loading ? (
-            <span className="ap-loading-spinner" />
+            <Loader2 className="h-5 w-5 animate-spin" />
           ) : playing ? (
-            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
-              <rect x="3" y="2" width="4" height="12" rx="1.5" />
-              <rect x="9" y="2" width="4" height="12" rx="1.5" />
-            </svg>
+            <Pause className="h-5 w-5 fill-current" />
           ) : (
-            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M4 2.5a.5.5 0 01.765-.424l8 5.5a.5.5 0 010 .848l-8 5.5A.5.5 0 014 13.5v-11z" />
-            </svg>
+            <Play className="h-5 w-5 translate-x-0.5 fill-current" />
           )}
         </button>
 
-        {/* Scrubber and simulated waveform */}
-        <div className="ap-scrubber-container" style={{ flex: 1, position: "relative" }}>
-          <div className="ap-waveform-bg">
-            {waveform.map((h, i) => (
+        {/* Waveform */}
+        <div className="flex h-12 min-w-0 flex-1 items-center gap-[2px]" role="slider" aria-label="Audio scrubber" aria-valuenow={Math.round(currentTime)} aria-valuemax={Math.round(duration)}>
+          {waveform.map((h, i) => (
+            <button
+              key={i}
+              onClick={() => seekToBar(i)}
+              className="group flex h-full flex-1 items-center"
+              tabIndex={-1}
+              aria-hidden="true"
+            >
               <span
-                key={i}
-                className={`ap-bar ${i < filledBars ? "ap-bar-filled" : ""}`}
-                style={{ height: `${h}px` }}
+                className={`w-full rounded-full transition-colors ${
+                  i < filledBars ? "bg-brand-500" : "bg-slate-200 group-hover:bg-slate-300"
+                }`}
+                style={{ height: `${Math.max(8, h * 100)}%` }}
               />
-            ))}
-          </div>
-          <input
-            type="range"
-            className="ap-scrubber"
-            min={0}
-            max={duration || 100}
-            step={0.1}
-            value={currentTime}
-            onChange={handleSeekChange}
-            disabled={loading || audioError || duration === 0}
-            aria-label="Audio scrubber"
-            style={{ "--progress-pct": `${progressPercentage}%` } as React.CSSProperties}
-          />
+            </button>
+          ))}
         </div>
 
-        {/* Time Tracking */}
-        <span className="ap-time" aria-live="off">
-          {formatTime(currentTime)} <span className="ap-duration">/ {formatTime(duration)}</span>
-        </span>
-
-        {/* Playback Speed Rate Selector */}
-        <div className="ap-rate-wrapper">
-          <select
-            className="ap-rate-select"
-            value={playbackRate}
-            onChange={handleRateChange}
+        <div className="flex flex-shrink-0 flex-col items-end gap-1">
+          <button
+            onClick={cycleSpeed}
+            className="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
             aria-label="Playback speed"
-            title="Playback Speed"
           >
-            <option value="0.5">0.5x</option>
-            <option value="0.75">0.75x</option>
-            <option value="1">1.0x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2.0x</option>
-          </select>
+            {playbackRate}x
+          </button>
+          <span className="font-mono text-xs text-slate-400">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
         </div>
-
-        {/* Mute button */}
-        <button
-          className="ap-mute-btn"
-          onClick={handleMuteToggle}
-          aria-label={muted ? "Unmute" : "Mute"}
-          title={muted ? "Unmute" : "Mute"}
-        >
-          {muted || volume === 0 ? (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M6.717 3.55A.5.5 0 017 4v8a.5.5 0 01-.812.39L3.825 10.5H2a.5.5 0 01-.5-.5v-4a.5.5 0 01.5-.5h1.825L6.188 3.61a.5.5 0 01.529-.06zM13.354 6.646a.5.5 0 00-.708.708l.707.707-.707.707a.5.5 0 00.708.708L14.06 9.06l.708.708a.5.5 0 00.707-.708L14.768 8.353l.707-.707a.5.5 0 00-.707-.708L14.06 7.646l-.707-.707z" />
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M11.536 14.01A8.473 8.473 0 0014.5 8a8.473 8.473 0 00-2.964-6.01l-.703.71A7.476 7.476 0 0113.5 8c0 2.09-.84 3.986-2.197 5.375l.703.71zm-2.218-2.218l-.703-.71A5.476 5.476 0 0010.5 8a5.476 5.476 0 00-1.62-3.928l-.657.752A4.48 4.48 0 019.5 8a4.48 4.48 0 01-1.182 3z" />
-              <path d="M6.717 3.55A.5.5 0 017 4v8a.5.5 0 01-.812.39L3.825 10.5H2a.5.5 0 01-.5-.5v-4a.5.5 0 01.5-.5h1.825L6.188 3.61a.5.5 0 01.529-.06z" />
-            </svg>
-          )}
-        </button>
-
-        {/* Volume Scrub */}
-        <input
-          className="ap-volume"
-          type="range"
-          min={0}
-          max={1}
-          step={0.05}
-          value={muted ? 0 : volume}
-          onChange={handleVolumeChange}
-          aria-label="Volume"
-        />
-
-        {/* Download Audio */}
-        <a
-          className="ap-download-btn"
-          href={src}
-          download
-          title="Download Audio"
-          aria-label="Download audio file"
-          style={{
-            color: "var(--muted)",
-            background: "none",
-            border: "none",
-            padding: "4px",
-            display: "flex",
-            alignItems: "center",
-            cursor: "pointer",
-            transition: "color 0.2s ease"
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink-2)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-        </a>
       </div>
 
-      {/* Buffering/Error Notices */}
       {audioError && (
-        <span className="ap-error-notice" role="alert">
-          ⚠️ {lang === "de" ? "Audio-Ladefehler" : "Audio load failed"}
-        </span>
+        <p className="mt-2 text-xs text-rose-500" role="alert">
+          ⚠︎ Audio failed to load
+        </p>
       )}
     </div>
   );
 }
-
-// Simple lang check mapping
-const lang = typeof window !== "undefined" ? localStorage.getItem("meeting-ai-lang") || "en" : "en";

@@ -1,381 +1,163 @@
 import { test, expect } from "@playwright/test";
 
-const FAKE_USER = { id: 1, email: "test@example.com", name: "Test User" };
+const FAKE_USER = { id: 1, email: "test@example.com", name: "Test User", has_password: true };
+
+function meeting(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 123,
+    title: "Design System Alignment",
+    status: "done",
+    recording_type: "Business Meeting",
+    confidence: 90,
+    audio_filename: null,
+    media_token: "tok",
+    transcript: "We decided to migrate our component library to Tailwind CSS by next sprint. Alice will lead the work.",
+    summary: "This was an alignment meeting to finalize design system upgrades.",
+    key_points: ["Discussion on design framework choices", "Evaluation of Tailwind conversion speed"],
+    decisions: ["Migrate component library to Tailwind CSS next sprint"],
+    action_items: [{ task: "Lead conversion migration work", owner: "Alice", due: "Next Friday" }],
+    created_at: "2026-07-15T02:00:00Z",
+    ...overrides,
+  };
+}
+
+const json = (body: unknown, status = 200) => ({ status, contentType: "application/json", body: JSON.stringify(body) });
 
 test.describe("Orivon Frontend E2E Tests", () => {
   // Every test starts "already logged in": the app silently calls
-  // POST /auth/refresh on mount (simulating a returning user with a valid
-  // refresh cookie) and GET /meetings on every page load. Tests that
-  // specifically exercise the login/register screen override the
-  // /auth/refresh mock with their own (last-registered route wins).
+  // POST /auth/refresh on mount, then GET /meetings. Tests that exercise
+  // the login screen override the /auth/refresh mock (last route wins).
   test.beforeEach(async ({ page }) => {
-    await page.route("**/auth/refresh", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ access_token: "fake-test-access-token", token_type: "bearer", user: FAKE_USER }),
-      });
-    });
-
-    await page.route("**/meetings", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([]),
-      });
-    });
+    await page.route("**/auth/refresh", (route) =>
+      route.fulfill(json({ access_token: "tok", token_type: "bearer", user: FAKE_USER })),
+    );
+    await page.route(/\/meetings\/\d+\/metadata/, (route) =>
+      route.fulfill(json({ people: [], projects: [], topics: [], related_meetings: [] })),
+    );
+    await page.route(/\/meetings(\?.*)?$/, (route) => route.fulfill(json([])));
   });
 
-  test("1. homepage loads successfully", async ({ page }) => {
+  test("1. dashboard loads for an authenticated user", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("a.sidebar-brand")).toContainText("ORIVON");
-    await expect(page.locator("text=Your structured knowledge will appear here.")).toBeVisible();
+    await expect(page.getByText("Orivon", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Test/ })).toBeVisible();
+    await expect(page.getByText("No recordings yet")).toBeVisible();
   });
 
-  test("2. choose-file UI works", async ({ page }) => {
+  test("2. uploads UI works", async ({ page }) => {
     await page.goto("/");
-    // Switch to Record & Upload tab
-    await page.locator("text=Record & Upload").click();
-
-    const chooseFileLabel = page.locator(".rf-upload-trigger-btn");
-    await expect(chooseFileLabel).toBeVisible();
-
-    const fileInput = page.locator("input[type='file']");
-    await expect(fileInput).toBeHidden(); // Hidden input inside the trigger button area
+    await page.getByRole("button", { name: "Uploads" }).click();
+    await expect(page.locator(".rf-upload-trigger-btn")).toBeVisible();
+    await expect(page.locator("input[type='file']")).toBeHidden();
   });
 
   test("3. processing state appears during upload", async ({ page }) => {
-    // Intercept upload to delay response
     await page.route("**/meetings/upload", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          id: 1,
-          title: "Delayed Meeting",
-          status: "done",
-          recording_type: "Unknown",
-          confidence: 100,
-          audio_filename: null,
-          transcript: "Mock transcript",
-          summary: "Mock summary",
-          key_points: [],
-          decisions: [],
-          action_items: [],
-          created_at: new Date().toISOString(),
-        }),
-      });
+      await new Promise((r) => setTimeout(r, 800));
+      await route.fulfill(json(meeting({ status: "done" })));
     });
-
     await page.goto("/");
-    // Switch to Record & Upload tab
-    await page.locator("text=Record & Upload").click();
-
-    // Set file input (starts upload immediately)
-    const fileInput = page.locator("input[type='file']");
-    await fileInput.setInputFiles({
-      name: "test.wav",
-      mimeType: "audio/wav",
-      buffer: Buffer.from("RIFF dummy WAV file data"),
-    });
-
-    // Check loading indicator / processing view appears immediately
+    await page.getByRole("button", { name: "Uploads" }).click();
+    await page.locator("input[type='file']").setInputFiles({ name: "test.wav", mimeType: "audio/wav", buffer: Buffer.from("RIFF dummy") });
     await expect(page.locator(".rf-processing-view")).toBeVisible();
   });
 
-  test("4. backend errors stop the loading state and display error", async ({ page }) => {
-    // Mock upload to fail
-    await page.route("**/meetings/upload", async (route) => {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ detail: "Internal Server Error during AI summary" }),
-      });
-    });
-
+  test("4. backend errors surface an error message", async ({ page }) => {
+    await page.route("**/meetings/upload", (route) => route.fulfill(json({ detail: "Internal Server Error during AI summary" }, 500)));
     await page.goto("/");
-    // Switch to Record & Upload tab
-    await page.locator("text=Record & Upload").click();
-
-    // Set file input
-    const fileInput = page.locator("input[type='file']");
-    await fileInput.setInputFiles({
-      name: "test.wav",
-      mimeType: "audio/wav",
-      buffer: Buffer.from("RIFF dummy WAV file data"),
-    });
-
-    // Verify error is displayed, processing state ends
+    await page.getByRole("button", { name: "Uploads" }).click();
+    await page.locator("input[type='file']").setInputFiles({ name: "test.wav", mimeType: "audio/wav", buffer: Buffer.from("RIFF dummy") });
     await expect(page.locator(".rf-error-message")).toContainText("Internal Server Error during AI summary");
   });
 
-  test("5. successful meeting processing displays all structured sections", async ({ page }) => {
-    const mockResponse = {
-      id: 123,
-      title: "Design System Alignment",
-      status: "done",
-      recording_type: "Business Meeting",
-      confidence: 90,
-      audio_filename: null,
-      transcript: "We decided to migrate our component library to Tailwind CSS by next sprint. Alice will lead the work.",
-      summary: "This was an alignment meeting to finalize design system upgrades.",
-      key_points: ["Discussion on design framework choices", "Evaluation of Tailwind conversion speed"],
-      decisions: ["Migrate component library to Tailwind CSS next sprint"],
-      action_items: [
-        { task: "Lead conversion migration work", owner: "Alice", due: "Next Friday" }
-      ],
-      created_at: "2026-07-15T02:00:00Z",
-    };
-
-    await page.route("**/meetings/upload", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(mockResponse),
-      });
-    });
-
+  test("5. a completed upload opens its structured detail view", async ({ page }) => {
+    await page.route("**/meetings/upload", (route) => route.fulfill(json(meeting({ status: "done" }))));
     await page.goto("/");
-    // Switch to Record & Upload tab
-    await page.locator("text=Record & Upload").click();
+    await page.getByRole("button", { name: "Uploads" }).click();
+    await page.locator("input[type='file']").setInputFiles({ name: "test.wav", mimeType: "audio/wav", buffer: Buffer.from("RIFF dummy") });
 
-    // Set file input
-    const fileInput = page.locator("input[type='file']");
-    await fileInput.setInputFiles({
-      name: "test.wav",
-      mimeType: "audio/wav",
-      buffer: Buffer.from("RIFF dummy WAV file data"),
-    });
+    await expect(page.getByRole("heading", { name: "Design System Alignment" })).toBeVisible();
+    await expect(page.getByText("This was an alignment meeting")).toBeVisible();
+    await expect(page.getByText("Discussion on design framework choices")).toBeVisible();
+    await expect(page.getByText("Migrate component library to Tailwind CSS next sprint")).toBeVisible();
+    await expect(page.getByText("Lead conversion migration work")).toBeVisible();
 
-    // Check title is rendered
-    await expect(page.locator("h1:has-text('Design System Alignment')")).toBeVisible();
-
-    // Check summary section
-    await expect(page.locator("text=This was an alignment meeting")).toBeVisible();
-
-    // Check key points
-    await expect(page.locator("text=Discussion on design framework choices")).toBeVisible();
-
-    // Check decisions
-    await expect(page.locator("text=Migrate component library to Tailwind CSS next sprint")).toBeVisible();
-
-    // Check action items
-    await expect(page.locator("text=Lead conversion migration work")).toBeVisible();
-    await expect(page.locator("text=Alice · Next Friday")).toBeVisible();
-
-    // Check full transcript — navigate to Transcript tab first (new workspace nav)
-    await page.locator("button[role='tab']:has-text('Transcript')").click();
-    await expect(page.locator(".rw-transcript-body")).toContainText("We decided to migrate our component library");
+    await page.getByRole("button", { name: "Transcript" }).click();
+    await expect(page.getByText("We decided to migrate our component library")).toBeVisible();
   });
 
-  test("6. failed meeting displays processing failure and full transcript", async ({ page }) => {
-    const mockResponse = {
-      id: 999,
-      title: "Failed Meeting Test",
-      status: "failed",
-      recording_type: "Unknown",
-      confidence: 100,
-      audio_filename: null,
-      transcript: "This is a transcript of a meeting that eventually failed summarization.",
-      summary: null,
-      key_points: [],
-      decisions: [],
-      action_items: [],
-      created_at: "2026-07-15T02:00:00Z",
-    };
-
-    // Mock GET /meetings to return this failed meeting
-    await page.route("**/meetings", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([mockResponse]),
-      });
-    });
-
+  test("6. a failed meeting shows the failure state and transcript", async ({ page }) => {
+    const failed = meeting({ id: 999, title: "Failed Meeting Test", status: "failed", summary: null, key_points: [], decisions: [], action_items: [], transcript: "This is a transcript of a meeting that eventually failed summarization." });
+    await page.route(/\/meetings(\?.*)?$/, (route) => route.fulfill(json([failed])));
     await page.goto("/");
-
-    // Wait for the meeting to be selected in the sidebar
-    await expect(page.locator("h1:has-text('Failed Meeting Test')")).toBeVisible();
-
-    // Summary section should show failed warning
-    await expect(page.locator(".rw-summary-text")).toContainText("Processing failed. Please check the backend logs or retry.");
-
-    // Full transcript should still be visible — switch to Transcript tab
-    await page.locator("button[role='tab']:has-text('Transcript')").click();
-    await expect(page.locator(".rw-transcript-body")).toContainText("This is a transcript of a meeting that eventually failed");
+    await page.getByText("Failed Meeting Test").first().click();
+    await expect(page.getByText(/Processing failed/)).toBeVisible();
+    await page.getByRole("button", { name: "Transcript" }).click();
+    await expect(page.getByText("This is a transcript of a meeting that eventually failed")).toBeVisible();
   });
 
-  test("7. export PDF button is visible for completed meetings", async ({ page }) => {
-    const mockResponse = {
-      id: 123,
-      title: "PDF Test Meeting",
-      status: "done",
-      recording_type: "Unknown",
-      confidence: 100,
-      audio_filename: null,
-      transcript: "We discussed export options.",
-      summary: "This is a summary.",
-      key_points: [],
-      decisions: [],
-      action_items: [],
-      created_at: "2026-07-15T02:00:00Z",
-    };
-
-    await page.route("**/meetings", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([mockResponse]),
-      });
-    });
-
+  test("7. the detail view exposes an Export PDF link", async ({ page }) => {
+    await page.route(/\/meetings(\?.*)?$/, (route) => route.fulfill(json([meeting()])));
     await page.goto("/");
-
-    // Export button should be visible (we select the first match in the DOM)
-    const exportBtn = page.locator("a:has-text('Export PDF')").first();
-    await expect(exportBtn).toBeVisible();
-    
-    // Check download href
-    const href = await exportBtn.getAttribute("href");
-    expect(href).toContain("/meetings/123/pdf?lang=en");
+    await page.getByText("Design System Alignment").first().click();
+    const exportLink = page.getByRole("link", { name: /Export/ }).first();
+    await expect(exportLink).toBeVisible();
+    expect(await exportLink.getAttribute("href")).toContain("/meetings/123/pdf?lang=en");
   });
 
-  test("8. background processing status is polled until completion", async ({ page }) => {
-    const meetingId = 456;
-    let pollCount = 0;
-
-    await page.route("**/meetings/upload", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          id: meetingId,
-          title: "Untitled Meeting",
-          status: "transcribing",
-          recording_type: "Unknown",
-          confidence: 100,
-          audio_filename: null,
-          transcript: null,
-          summary: null,
-          key_points: [],
-          decisions: [],
-          action_items: [],
-          created_at: new Date().toISOString(),
-        }),
-      });
+  test("8. background processing is polled until completion", async ({ page }) => {
+    const id = 456;
+    let polls = 0;
+    await page.route("**/meetings/upload", (route) =>
+      route.fulfill(json(meeting({ id, title: "Untitled Meeting", status: "transcribing", summary: null, key_points: [], decisions: [], action_items: [], transcript: null }))),
+    );
+    await page.route(new RegExp(`/meetings/${id}$`), (route) => {
+      polls += 1;
+      const done = polls >= 2;
+      route.fulfill(json(meeting({ id, title: done ? "Background Processed Meeting" : "Untitled Meeting", status: done ? "done" : "transcribing" })));
     });
-
-    // The backend hasn't finished the first couple of times the frontend
-    // polls GET /meetings/{id}; it reports done from the 2nd poll onward.
-    await page.route(`**/meetings/${meetingId}`, async (route) => {
-      pollCount += 1;
-      const isDone = pollCount >= 2;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          id: meetingId,
-          title: isDone ? "Background Processed Meeting" : "Untitled Meeting",
-          status: isDone ? "done" : "transcribing",
-          recording_type: "Unknown",
-          confidence: 100,
-          audio_filename: null,
-          transcript: isDone ? "The final transcript." : null,
-          summary: isDone ? "The final summary." : null,
-          key_points: [],
-          decisions: [],
-          action_items: [],
-          created_at: new Date().toISOString(),
-        }),
-      });
-    });
-
     await page.goto("/");
-    await page.locator("text=Record & Upload").click();
-
-    const fileInput = page.locator("input[type='file']");
-    await fileInput.setInputFiles({
-      name: "test.wav",
-      mimeType: "audio/wav",
-      buffer: Buffer.from("RIFF dummy WAV file data"),
-    });
-
-    // Upload is accepted immediately; the recording is still processing
+    await page.getByRole("button", { name: "Uploads" }).click();
+    await page.locator("input[type='file']").setInputFiles({ name: "test.wav", mimeType: "audio/wav", buffer: Buffer.from("RIFF dummy") });
     await expect(page.locator(".rf-processing-view")).toBeVisible();
-
-    // Polling eventually surfaces the completed meeting
-    await expect(page.locator("h1:has-text('Background Processed Meeting')")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Background Processed Meeting" })).toBeVisible({ timeout: 15000 });
   });
 
-  test("9. unauthenticated visitor sees the login screen, not the workspace", async ({ page }) => {
-    // Override this test's /auth/refresh to report "no session" instead of
-    // the beforeEach default.
-    await page.route("**/auth/refresh", async (route) => {
-      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "No refresh token provided." }) });
-    });
-
+  test("9. unauthenticated visitors see the login screen", async ({ page }) => {
+    await page.route("**/auth/refresh", (route) => route.fulfill(json({ detail: "no session" }, 401)));
     await page.goto("/");
-
-    await expect(page.locator(".auth-screen")).toBeVisible();
-    await expect(page.locator(".auth-brand")).toContainText("ORIVON");
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
     await expect(page.locator("#auth-email")).toBeVisible();
-    await expect(page.locator(".workspace-layout")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
   });
 
   test("10. registering a new account logs the user in", async ({ page }) => {
-    await page.route("**/auth/refresh", async (route) => {
-      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "No refresh token provided." }) });
-    });
-    await page.route("**/auth/register", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ access_token: "fresh-token", token_type: "bearer", user: FAKE_USER }),
-      });
-    });
-
+    await page.route("**/auth/refresh", (route) => route.fulfill(json({ detail: "no session" }, 401)));
+    await page.route("**/auth/register", (route) => route.fulfill(json({ access_token: "tok", token_type: "bearer", user: FAKE_USER })));
     await page.goto("/");
-    await expect(page.locator(".auth-screen")).toBeVisible();
-
-    await page.locator("text=New here? Create an account").click();
+    await page.getByText("New here? Create an account").click();
     await page.locator("#auth-email").fill("newuser@example.com");
     await page.locator("#auth-password").fill("a-secure-password");
-    await page.locator(".auth-submit").click();
-
-    await expect(page.locator(".workspace-layout")).toBeVisible();
-    await expect(page.locator("a.sidebar-brand")).toContainText("ORIVON");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toBeVisible();
   });
 
-  test("11. logging in with the wrong password shows an error", async ({ page }) => {
-    await page.route("**/auth/refresh", async (route) => {
-      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "No refresh token provided." }) });
-    });
-    await page.route("**/auth/login", async (route) => {
-      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "Incorrect email or password." }) });
-    });
-
+  test("11. a wrong password shows an error", async ({ page }) => {
+    await page.route("**/auth/refresh", (route) => route.fulfill(json({ detail: "no session" }, 401)));
+    await page.route("**/auth/login", (route) => route.fulfill(json({ detail: "Incorrect email or password." }, 401)));
     await page.goto("/");
     await page.locator("#auth-email").fill("test@example.com");
     await page.locator("#auth-password").fill("wrong-password");
-    await page.locator(".auth-submit").click();
-
-    await expect(page.locator(".auth-form .error")).toContainText("Incorrect email or password.");
-    await expect(page.locator(".workspace-layout")).toHaveCount(0);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.getByText("Incorrect email or password.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
   });
 
   test("12. logging out returns to the login screen", async ({ page }) => {
-    await page.route("**/auth/logout", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "success" }) });
-    });
-
+    await page.route("**/auth/logout", (route) => route.fulfill(json({ status: "success" })));
     await page.goto("/");
-    await expect(page.locator(".workspace-layout")).toBeVisible();
-
-    await page.locator("text=Settings").click();
-    await page.locator("button:has-text('Log out')").click();
-
-    await expect(page.locator(".auth-screen")).toBeVisible();
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await page.getByRole("button", { name: "Log out" }).click();
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   });
 });

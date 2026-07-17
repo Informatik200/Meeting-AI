@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Loader2, Video } from "lucide-react";
 import { GOOGLE_CLIENT_ID, login, loginWithGoogle, register, type AuthUser } from "../lib/auth";
+import type { Lang } from "../lib/types";
 
 interface AuthScreenProps {
-  lang: string;
+  lang: Lang;
   onAuthenticated: (user: AuthUser) => void;
 }
 
@@ -15,10 +17,7 @@ declare global {
     google?: {
       accounts: {
         id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (response: { credential: string }) => void;
-          }) => void;
+          initialize: (config: { client_id: string; callback: (r: { credential: string }) => void }) => void;
           renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
         };
       };
@@ -29,52 +28,48 @@ declare global {
 const GOOGLE_SCRIPT_ID = "google-identity-services";
 
 export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
+  const t = (en: string, de: string) => (lang === "de" ? de : en);
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const googleButtonRef = useRef<HTMLDivElement>(null);
+  const googleRef = useRef<HTMLDivElement>(null);
   const modeRef = useRef(mode);
   modeRef.current = mode;
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
-
     const handleCredential = async (credential: string) => {
       setError("");
       setLoading(true);
       try {
-        const user = await loginWithGoogle(credential);
-        onAuthenticated(user);
+        onAuthenticated(await loginWithGoogle(credential));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Google sign-in failed.");
       } finally {
         setLoading(false);
       }
     };
-
     const renderButton = () => {
-      if (!window.google || !googleButtonRef.current) return;
+      if (!window.google || !googleRef.current) return;
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
-        callback: (response) => void handleCredential(response.credential),
+        callback: (r) => void handleCredential(r.credential),
       });
-      googleButtonRef.current.innerHTML = "";
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: "filled_black",
+      googleRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleRef.current, {
+        theme: "outline",
         size: "large",
-        width: 320,
+        width: 340,
         text: modeRef.current === "register" ? "signup_with" : "signin_with",
       });
     };
-
     if (document.getElementById(GOOGLE_SCRIPT_ID)) {
       renderButton();
       return;
     }
-
     const script = document.createElement("script");
     script.id = GOOGLE_SCRIPT_ID;
     script.src = "https://accounts.google.com/gsi/client";
@@ -82,8 +77,6 @@ export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
     script.defer = true;
     script.onload = renderButton;
     document.head.appendChild(script);
-    // The script tag is left in place for the app's lifetime - Google's
-    // client library isn't designed to be torn down and reloaded per mount.
   }, [mode, onAuthenticated]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,61 +94,56 @@ export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
     }
   };
 
-  const toggleMode = () => {
-    setMode((m) => (m === "login" ? "register" : "login"));
-    setError("");
-  };
-
   return (
-    <div className="auth-screen">
-      <div className="auth-card">
-        <div className="auth-brand">
-          <span aria-hidden="true">✦</span> ORIVON
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-brand-200/30 blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-purple-200/30 blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-md animate-rise rounded-2xl border border-slate-100 bg-white p-8 shadow-soft-lg">
+        <div className="mb-6 flex items-center gap-2 text-brand-600">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-brand-500 to-purple-500 text-white shadow-glow">
+            <Video className="h-4 w-4" />
+          </span>
+          <span className="text-xl font-bold tracking-tight text-slate-900">Orivon</span>
         </div>
-        <h1>
-          {mode === "login"
-            ? lang === "de"
-              ? "Willkommen zurück"
-              : "Welcome back"
-            : lang === "de"
-              ? "Konto erstellen"
-              : "Create your account"}
+
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          {mode === "login" ? t("Welcome back", "Willkommen zurück") : t("Create your account", "Konto erstellen")}
         </h1>
-        <p className="auth-subtitle">
-          {lang === "de" ? "Ihr privater KI-Wissensarbeitsbereich." : "Your private AI knowledge workspace."}
+        <p className="mt-1 text-sm text-slate-500">
+          {t("Your private AI knowledge workspace.", "Ihr privater KI-Wissensarbeitsbereich.")}
         </p>
 
-        <form onSubmit={handleSubmit} className="auth-form" noValidate>
+        <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4" noValidate>
           {mode === "register" && (
-            <div className="settings-field">
-              <label htmlFor="auth-name">{lang === "de" ? "Name (optional)" : "Name (optional)"}</label>
+            <Field label={t("Name (optional)", "Name (optional)")}>
               <input
                 id="auth-name"
-                className="modal-input"
+                className={inputCls}
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
               />
-            </div>
+            </Field>
           )}
-          <div className="settings-field">
-            <label htmlFor="auth-email">Email</label>
+          <Field label="Email">
             <input
               id="auth-email"
-              className="modal-input"
+              className={inputCls}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               required
             />
-          </div>
-          <div className="settings-field">
-            <label htmlFor="auth-password">{lang === "de" ? "Passwort" : "Password"}</label>
+          </Field>
+          <Field label={t("Password", "Passwort")}>
             <input
               id="auth-password"
-              className="modal-input"
+              className={inputCls}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -163,48 +151,60 @@ export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
               minLength={mode === "register" ? 8 : undefined}
               required
             />
-          </div>
+          </Field>
 
           {error && (
-            <p className="error" role="alert">
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600" role="alert">
               {error}
             </p>
           )}
 
-          <button type="submit" className="btn-primary btn-brand auth-submit" disabled={loading}>
-            {loading
-              ? lang === "de"
-                ? "Bitte warten…"
-                : "Please wait…"
-              : mode === "login"
-                ? lang === "de"
-                  ? "Anmelden"
-                  : "Sign in"
-                : lang === "de"
-                  ? "Konto erstellen"
-                  : "Create account"}
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-500/25 transition-colors hover:bg-brand-700 disabled:opacity-60"
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {mode === "login" ? t("Sign in", "Anmelden") : t("Create account", "Konto erstellen")}
           </button>
         </form>
 
         {GOOGLE_CLIENT_ID && (
           <>
-            <div className="auth-divider">
-              <span>{lang === "de" ? "oder" : "or"}</span>
+            <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wider text-slate-400">
+              <span className="h-px flex-1 bg-slate-200" />
+              {t("or", "oder")}
+              <span className="h-px flex-1 bg-slate-200" />
             </div>
-            <div ref={googleButtonRef} className="auth-google-btn" />
+            <div ref={googleRef} className="google-btn-host flex justify-center" />
           </>
         )}
 
-        <button type="button" className="btn-primary btn-ghost auth-toggle" onClick={toggleMode}>
+        <button
+          type="button"
+          onClick={() => {
+            setMode((m) => (m === "login" ? "register" : "login"));
+            setError("");
+          }}
+          className="mt-6 w-full text-center text-sm text-slate-500 transition-colors hover:text-brand-600"
+        >
           {mode === "login"
-            ? lang === "de"
-              ? "Neu hier? Konto erstellen"
-              : "New here? Create an account"
-            : lang === "de"
-              ? "Bereits registriert? Anmelden"
-              : "Already have an account? Sign in"}
+            ? t("New here? Create an account", "Neu hier? Konto erstellen")
+            : t("Already have an account? Sign in", "Bereits registriert? Anmelden")}
         </button>
       </div>
     </div>
+  );
+}
+
+const inputCls =
+  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200";
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+      {children}
+    </label>
   );
 }
