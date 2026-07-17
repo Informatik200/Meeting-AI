@@ -65,25 +65,31 @@ def test_upload_meeting_success(client, mock_gemini, mock_whisper):
     }
     assert expected_keys.issubset(data.keys())
 
-    assert data["title"] == "Test Meeting Title"
-    assert data["status"] == "done"
-    assert data["transcript"] == "This is a mock transcript of the recorded audio file."
-    assert data["summary"] == "This is a mock summary of the meeting, discussing various test cases."
-    assert data["key_points"] == ["Point one discussed", "Point two decided"]
-    assert data["decisions"] == ["Decided to add tests"]
-    assert data["action_items"] == [{"task": "Write test cases", "owner": "Developer", "due": "Today"}]
+    # Upload now returns immediately, before the background pipeline runs -
+    # the meeting starts out still processing.
+    assert data["status"] == "transcribing"
+    meeting_id = data["id"]
+
+    # TestClient runs background tasks synchronously before control returns
+    # to this test, so by now the pipeline has already finished and committed.
+    detail_response = client.get(f"/meetings/{meeting_id}")
+    assert detail_response.status_code == 200
+    final = detail_response.json()
+
+    assert final["title"] == "Test Meeting Title"
+    assert final["status"] == "done"
+    assert final["transcript"] == "This is a mock transcript of the recorded audio file."
+    assert final["summary"] == "This is a mock summary of the meeting, discussing various test cases."
+    assert final["key_points"] == ["Point one discussed", "Point two decided"]
+    assert final["decisions"] == ["Decided to add tests"]
+    assert final["action_items"] == [{"task": "Write test cases", "owner": "Developer", "due": "Today"}]
 
     # Now verify retrieving via list endpoint
     list_response = client.get("/meetings")
     assert list_response.status_code == 200
     meetings = list_response.json()
     assert len(meetings) == 1
-    assert meetings[0]["id"] == data["id"]
-
-    # Verify retrieving via detail endpoint
-    detail_response = client.get(f"/meetings/{data['id']}")
-    assert detail_response.status_code == 200
-    assert detail_response.json()["id"] == data["id"]
+    assert meetings[0]["id"] == meeting_id
 
 
 def test_get_meeting_not_found(client):
@@ -100,10 +106,16 @@ def test_upload_meeting_processing_failure(client, mock_gemini, mock_whisper):
         b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x44\xac\x00\x00\x88\x58\x01\x00\x02\x00\x10\x00data\x00\x00\x00\x00"
     )
 
+    # A failure during background processing no longer surfaces as a failed
+    # HTTP response for the upload request itself - the upload was accepted
+    # and saved fine; only the async pipeline failed.
     response = client.post("/meetings/upload", files={"file": ("test.wav", fake_audio, "audio/wav")})
+    assert response.status_code == 200
+    meeting_id = response.json()["id"]
 
-    assert response.status_code == 500
-    assert "Processing failed" in response.json()["detail"]
+    detail_response = client.get(f"/meetings/{meeting_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["status"] == "failed"
 
 
 def test_upload_meeting_rejects_oversized_file(client):
