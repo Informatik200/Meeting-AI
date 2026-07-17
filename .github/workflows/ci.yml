@@ -43,7 +43,8 @@ jobs:
           WHISPER_MODEL_SIZE: "tiny"
         run: |
           cd backend
-          pytest -v
+          python -m pytest -v
+
 
   frontend:
     name: Frontend Lint & Test
