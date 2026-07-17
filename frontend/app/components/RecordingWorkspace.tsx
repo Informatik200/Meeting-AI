@@ -48,10 +48,6 @@ type T = {
   keyPoints: string;
   decisions: string;
   actionItems: string;
-  viewFullTranscript: string;
-  noneCaptured: string;
-  noActionItems: string;
-  ownerDueNotSpecified: string;
   processingStatus: string;
   processingFailed: string;
   detectedAs: string;

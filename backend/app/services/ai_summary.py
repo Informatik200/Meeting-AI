@@ -4,10 +4,9 @@ Sends a meeting transcript to Google Gemini and gets back a structured summary.
 
 import json
 
-from google import genai
 from google.genai import types
 
-from app.config import settings
+from app.services.gemini import get_gemini_client
 
 PROMPTS_BY_TYPE = {
     "Business Meeting": (
@@ -28,20 +27,13 @@ PROMPTS_BY_TYPE = {
 }
 
 
-def _get_client() -> genai.Client:
-    """Configure the Gemini client."""
-    if not settings.gemini_api_key:
-        raise ValueError("GEMINI_API_KEY is not configured. Add it to backend/.env and retry.")
-    return genai.Client(api_key=settings.gemini_api_key)
-
-
 def summarize_transcript(transcript: str, recording_type: str = "Unknown") -> dict:
     """
     Calls Gemini with the transcript and parses the structured JSON response.
     Applies specialized prompt logic based on the recording type.
     Raises ValueError if Gemini doesn't return valid JSON.
     """
-    client = _get_client()
+    client = get_gemini_client()
 
     specialized_instruction = PROMPTS_BY_TYPE.get(recording_type, PROMPTS_BY_TYPE["Unknown"])
 
@@ -93,7 +85,7 @@ def answer_question_about_meetings(question: str, context_chunks: list[str]) -> 
     answer a question grounded in those chunks. Kept here now so the API
     shape is ready when we wire up embeddings.
     """
-    client = _get_client()
+    client = get_gemini_client()
 
     context = "\n\n---\n\n".join(context_chunks)
 
@@ -116,7 +108,7 @@ def answer_meeting_chat(question: str, transcript: str) -> str:
     Answers a user's question about a specific meeting transcript using Gemini.
     Answers must be grounded strictly in the provided transcript text.
     """
-    client = _get_client()
+    client = get_gemini_client()
 
     prompt = f"Meeting transcript:\n\n{transcript}\n\nUser Question: {question}"
 

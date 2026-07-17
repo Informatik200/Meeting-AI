@@ -1,16 +1,8 @@
 import json
 
-from google import genai
 from google.genai import types
 
-from app.config import settings
-
-
-def _get_client() -> genai.Client:
-    """Configure the Gemini client."""
-    if not settings.gemini_api_key:
-        raise ValueError("GEMINI_API_KEY is not configured. Add it to backend/.env and retry.")
-    return genai.Client(api_key=settings.gemini_api_key)
+from app.services.gemini import get_gemini_client
 
 
 def classify_transcript(transcript: str) -> dict:
@@ -25,7 +17,7 @@ def classify_transcript(transcript: str) -> dict:
     if not transcript or not transcript.strip():
         return {"recording_type": "Unknown", "confidence": 100, "reason": "Transcript is empty."}
 
-    client = _get_client()
+    client = get_gemini_client()
 
     prompt = f"Here is the transcript:\n\n{transcript}"
 

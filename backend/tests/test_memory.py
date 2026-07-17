@@ -19,7 +19,7 @@ def test_entity_extraction_and_storage(client, db_session):
     db_session.commit()
     db_session.refresh(meeting)
 
-    with patch("app.services.memory._get_client") as mock_get_client:
+    with patch("app.services.memory.get_gemini_client") as mock_get_client:
         mock_client = MagicMock()
         mock_response = MagicMock()
         # Mock Gemini structured JSON response
@@ -114,7 +114,7 @@ def test_global_chat_route(client, db_session):
     db_session.add(m)
     db_session.commit()
 
-    with patch("app.services.memory._get_client") as mock_get_client:
+    with patch("app.services.memory.get_gemini_client") as mock_get_client:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.text = "In the database context, Kubernetes was finalized."

@@ -1,19 +1,11 @@
 import json
 
-from google import genai
 from google.genai import types
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.database import Entity, Meeting, MeetingEntity
-
-
-def _get_client() -> genai.Client:
-    """Configure the Gemini client."""
-    if not settings.gemini_api_key:
-        raise ValueError("GEMINI_API_KEY is not configured.")
-    return genai.Client(api_key=settings.gemini_api_key)
+from app.services.gemini import get_gemini_client
 
 
 def extract_and_store_entities(meeting: Meeting, db: Session):
@@ -24,7 +16,7 @@ def extract_and_store_entities(meeting: Meeting, db: Session):
     if not meeting.transcript or not meeting.transcript.strip():
         return
 
-    client = _get_client()
+    client = get_gemini_client()
 
     prompt = f"Transcript:\n\n{meeting.transcript}"
 
@@ -181,7 +173,7 @@ def answer_global_chat(message: str, db: Session) -> str:
 
     knowledge_base = "\n\n=== RECORDINGS DATABASE ===\n\n" + "\n\n---\n\n".join(context_blocks)
 
-    client = _get_client()
+    client = get_gemini_client()
 
     response = client.models.generate_content(
         model="gemini-3.1-flash-lite",

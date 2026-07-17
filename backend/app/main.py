@@ -224,8 +224,6 @@ def regenerate_meeting_analysis(meeting_id: int, request: RegenerateRequest, db:
     db.commit()
 
     try:
-        from app.services.ai_summary import summarize_transcript
-
         ai_result = summarize_transcript(meeting.transcript, recording_type=request.recording_type)
 
         meeting.title = ai_result.get("title", "Untitled Meeting")

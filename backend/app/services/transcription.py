@@ -59,15 +59,3 @@ def transcribe_audio(file_path: str) -> str:
 
     full_text = " ".join(formatted)
     return full_text.strip()
-
-
-def transcribe_audio_with_timestamps(file_path: str) -> list[dict]:
-    """
-    Same as above but returns segments with timestamps, useful if you
-    want to show a synced transcript later or build speaker diarization on top.
-    """
-    model = get_model()
-
-    segments, info = model.transcribe(file_path, beam_size=5, vad_filter=True)
-
-    return [{"start": seg.start, "end": seg.end, "text": seg.text.strip()} for seg in segments]
