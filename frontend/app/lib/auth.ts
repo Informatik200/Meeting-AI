@@ -1,7 +1,7 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
-export type AuthUser = { id: number; email: string; name: string | null };
+export type AuthUser = { id: number; email: string; name: string | null; has_password: boolean };
 
 type AuthResponse = { access_token: string; token_type: string; user: AuthUser };
 
@@ -76,6 +76,29 @@ export async function logout(): Promise<void> {
     await fetch(`${API_URL}/auth/logout`, { method: "POST", credentials: "include" });
   } finally {
     accessToken = null;
+  }
+}
+
+export async function updateProfile(name: string): Promise<AuthUser> {
+  const res = await apiFetch(`${API_URL}/auth/me`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? "Could not update profile.");
+  return data;
+}
+
+export async function changePassword(currentPassword: string | null, newPassword: string): Promise<void> {
+  const res = await apiFetch(`${API_URL}/auth/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? "Could not change password.");
   }
 }
 
