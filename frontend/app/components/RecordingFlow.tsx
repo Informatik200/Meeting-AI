@@ -49,6 +49,7 @@ export default function RecordingFlow({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMountedRef = useRef(true);
 
   // Progress simulation steps
   const steps = [
@@ -236,11 +237,38 @@ export default function RecordingFlow({
     }
   };
 
+  // The backend now processes uploads in the background and returns before
+  // transcription/summarization finish (status "transcribing"/"summarizing").
+  // Poll until it reaches a terminal state. If the response already came
+  // back "done"/"failed" (e.g. a mocked or synchronous backend), skip
+  // polling entirely and use it as-is.
+  const pollMeetingStatus = async (meetingId: number): Promise<Meeting> => {
+    const POLL_INTERVAL_MS = 2000;
+    const MAX_POLL_ATTEMPTS = 150; // ~5 minute safety cap
+
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+      if (!isMountedRef.current) {
+        throw new Error("cancelled");
+      }
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+
+      const res = await fetch(`${apiUrl}/meetings/${meetingId}`);
+      if (!res.ok) continue;
+
+      const data: Meeting = await res.json();
+      if (data.status === "done" || data.status === "failed") {
+        return data;
+      }
+    }
+
+    throw new Error(lang === "de" ? "Verarbeitung dauert zu lange." : "Processing is taking longer than expected.");
+  };
+
   const performUpload = async (audioFile: File) => {
     setUploadProgressStep(0);
     setUploadError("");
 
-    // Simulate timeline progress steps during the HTTP fetch request
+    // Simulate timeline progress steps while we wait for the pipeline
     let currentStep = 0;
     const interval = setInterval(() => {
       if (currentStep < steps.length - 1) {
@@ -259,20 +287,32 @@ export default function RecordingFlow({
       });
 
       const payload = await response.json();
-      clearInterval(interval);
 
       if (!response.ok) {
+        clearInterval(interval);
         throw new Error(payload.detail ?? (lang === "de" ? "Fehler beim Upload" : "Upload failed"));
+      }
+
+      const finalMeeting: Meeting =
+        payload.status === "done" || payload.status === "failed" ? payload : await pollMeetingStatus(payload.id);
+
+      clearInterval(interval);
+      if (!isMountedRef.current) return;
+
+      if (finalMeeting.status === "failed") {
+        throw new Error(lang === "de" ? "Verarbeitung fehlgeschlagen." : "Processing failed.");
       }
 
       // Fast-forward simulation to completion
       setUploadProgressStep(steps.length);
       setTimeout(() => {
-        onUploadComplete(payload);
+        if (!isMountedRef.current) return;
+        onUploadComplete(finalMeeting);
         setState("idle");
       }, 500);
     } catch (err: unknown) {
       clearInterval(interval);
+      if (!isMountedRef.current) return;
       const errMsg = (err as Error)?.message || (lang === "de" ? "Upload failed" : "Upload failed");
       setUploadError(errMsg);
       onError(errMsg);
@@ -280,7 +320,9 @@ export default function RecordingFlow({
   };
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       cleanupMediaStream();
       stopTimer();
       stopVolumeTracker();

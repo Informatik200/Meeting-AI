@@ -227,4 +227,71 @@ test.describe("Orivon Frontend E2E Tests", () => {
     const href = await exportBtn.getAttribute("href");
     expect(href).toContain("/meetings/123/pdf?lang=en");
   });
+
+  test("8. background processing status is polled until completion", async ({ page }) => {
+    const meetingId = 456;
+    let pollCount = 0;
+
+    await page.route("**/meetings/upload", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: meetingId,
+          title: "Untitled Meeting",
+          status: "transcribing",
+          recording_type: "Unknown",
+          confidence: 100,
+          audio_filename: null,
+          transcript: null,
+          summary: null,
+          key_points: [],
+          decisions: [],
+          action_items: [],
+          created_at: new Date().toISOString(),
+        }),
+      });
+    });
+
+    // The backend hasn't finished the first couple of times the frontend
+    // polls GET /meetings/{id}; it reports done from the 2nd poll onward.
+    await page.route(`**/meetings/${meetingId}`, async (route) => {
+      pollCount += 1;
+      const isDone = pollCount >= 2;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: meetingId,
+          title: isDone ? "Background Processed Meeting" : "Untitled Meeting",
+          status: isDone ? "done" : "transcribing",
+          recording_type: "Unknown",
+          confidence: 100,
+          audio_filename: null,
+          transcript: isDone ? "The final transcript." : null,
+          summary: isDone ? "The final summary." : null,
+          key_points: [],
+          decisions: [],
+          action_items: [],
+          created_at: new Date().toISOString(),
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await page.locator("text=Record & Upload").click();
+
+    const fileInput = page.locator("input[type='file']");
+    await fileInput.setInputFiles({
+      name: "test.wav",
+      mimeType: "audio/wav",
+      buffer: Buffer.from("RIFF dummy WAV file data"),
+    });
+
+    // Upload is accepted immediately; the recording is still processing
+    await expect(page.locator(".rf-processing-view")).toBeVisible();
+
+    // Polling eventually surfaces the completed meeting
+    await expect(page.locator("h1:has-text('Background Processed Meeting')")).toBeVisible({ timeout: 15000 });
+  });
 });

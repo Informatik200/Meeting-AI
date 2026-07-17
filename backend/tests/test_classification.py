@@ -9,7 +9,7 @@ def test_classification_and_summary_success(client, db_session):
     with (
         patch("app.services.classification.get_gemini_client") as mock_get_client,
         patch("app.services.ai_summary.get_gemini_client") as mock_get_summary_client,
-        patch("app.main.transcribe_audio") as mock_transcribe,
+        patch("app.services.pipeline.transcribe_audio") as mock_transcribe,
     ):
         # Audio file mock
         mock_transcribe.return_value = "Good morning class, today we will learn about algorithms."
@@ -39,9 +39,12 @@ def test_classification_and_summary_success(client, db_session):
         # Call upload endpoint
         data = {"file": ("test.wav", b"fake audio content", "audio/wav")}
         response = client.post("/meetings/upload", files=data)
-
         assert response.status_code == 200
-        result = response.json()
+        meeting_id = response.json()["id"]
+
+        # TestClient runs the background pipeline synchronously before this
+        # call returns, so the meeting is already fully processed by now.
+        result = client.get(f"/meetings/{meeting_id}").json()
         assert result["recording_type"] == "Lecture"
         assert result["confidence"] == 75
         assert result["title"] == "Algorithms Lecture Intro"
@@ -51,7 +54,7 @@ def test_classification_unknown_fallback(client, db_session):
     with (
         patch("app.services.classification.get_gemini_client") as mock_get_client,
         patch("app.services.ai_summary.get_gemini_client") as mock_get_summary_client,
-        patch("app.main.transcribe_audio") as mock_transcribe,
+        patch("app.services.pipeline.transcribe_audio") as mock_transcribe,
     ):
         mock_transcribe.return_value = "Hello."
 
@@ -74,9 +77,10 @@ def test_classification_unknown_fallback(client, db_session):
         # Call upload endpoint
         data = {"file": ("test.wav", b"fake audio content", "audio/wav")}
         response = client.post("/meetings/upload", files=data)
-
         assert response.status_code == 200
-        result = response.json()
+        meeting_id = response.json()["id"]
+
+        result = client.get(f"/meetings/{meeting_id}").json()
         # Should fallback to Unknown, 100
         assert result["recording_type"] == "Unknown"
         assert result["confidence"] == 100

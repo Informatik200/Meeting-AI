@@ -3,7 +3,7 @@ import logging
 import os
 import uuid
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Response, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +16,7 @@ from app.database import Meeting, get_db, init_db
 from app.logging_config import configure_logging
 from app.rate_limit import rate_limiter
 from app.services.ai_summary import summarize_transcript
-from app.services.transcription import transcribe_audio
+from app.services.pipeline import process_meeting
 
 configure_logging(settings.log_level)
 logger = logging.getLogger("app")
@@ -68,15 +68,14 @@ def health_check(db: Session = Depends(get_db)):
 
 
 @app.post("/meetings/upload", dependencies=[Depends(_upload_rate_limit)])
-async def upload_meeting(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_meeting(
+    background_tasks: BackgroundTasks, file: UploadFile = File(...), db: Session = Depends(get_db)
+):
     """
-    Accepts an audio file, transcribes it, summarizes it, and saves everything.
-
-    NOTE: this runs synchronously for simplicity in Phase 1 - the request will
-    block until transcription + summarization finish (can take 10-60s+ depending
-    on audio length and your machine). In Phase 2, move this to a background
-    task/queue (e.g. Celery or FastAPI BackgroundTasks) so upload returns instantly
-    and the frontend polls or gets notified when it's done.
+    Accepts an audio file, saves it, and schedules transcription + summarization
+    as a background task. Returns immediately with status="transcribing" - the
+    request does not wait for the pipeline to finish. Poll GET /meetings/{id}
+    (or GET /meetings) to observe status transition to "done" or "failed".
     """
     allowed_extensions = {".mp3", ".wav", ".m4a", ".webm", ".ogg", ".mp4"}
     if not file.filename:
@@ -114,52 +113,7 @@ async def upload_meeting(file: UploadFile = File(...), db: Session = Depends(get
     db.commit()
     db.refresh(meeting)
 
-    try:
-        # Step 1: speech -> text
-        transcript = transcribe_audio(save_path)
-        meeting.transcript = transcript
-        meeting.status = "summarizing"
-        db.commit()
-
-        # Step 1.5: classify transcript
-        from app.services.classification import classify_transcript
-
-        try:
-            class_res = classify_transcript(transcript)
-            meeting.recording_type = class_res.get("recording_type", "Unknown")
-            meeting.confidence = class_res.get("confidence", 100)
-        except Exception:
-            logger.warning(
-                "Classification failed for meeting_id=%s, falling back to Unknown", meeting.id, exc_info=True
-            )
-            meeting.recording_type = "Unknown"
-            meeting.confidence = 100
-        db.commit()
-
-        # Step 2: text -> structured summary
-        ai_result = summarize_transcript(transcript, recording_type=meeting.recording_type)
-
-        meeting.title = ai_result.get("title", "Untitled Meeting")
-        meeting.summary = ai_result.get("summary", "")
-        meeting.key_points = json.dumps(ai_result.get("key_points", []))
-        meeting.decisions = json.dumps(ai_result.get("decisions", []))
-        meeting.action_items = json.dumps(ai_result.get("action_items", []))
-        meeting.status = "done"
-        db.commit()
-
-        # Step 3: extract entities for memory graph
-        from app.services.memory import extract_and_store_entities
-
-        try:
-            extract_and_store_entities(meeting, db)
-        except Exception:
-            logger.error("Entity extraction failed for meeting_id=%s", meeting.id, exc_info=True)
-
-    except Exception:
-        meeting.status = "failed"
-        db.commit()
-        logger.error("Meeting processing failed for meeting_id=%s", meeting.id, exc_info=True)
-        raise HTTPException(500, "Processing failed. Please try again or contact support if this continues.")
+    background_tasks.add_task(process_meeting, meeting.id)
 
     return _meeting_to_dict(meeting)
 

@@ -20,6 +20,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+from app.database import SessionLocal as AppSessionLocal
 from app.main import app
 
 
@@ -48,6 +49,13 @@ def db_session_fixture():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    # process_meeting() (run as a background task) opens its own session via
+    # app.database.SessionLocal() rather than the request-scoped get_db
+    # override below. Point that factory at this same test engine, otherwise
+    # a background task would silently operate on the real app database
+    # (empty, and a different SQLite :memory: instance) instead of this one.
+    AppSessionLocal.configure(bind=engine)
+
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
     session = TestingSessionLocal()
@@ -97,6 +105,6 @@ def mock_gemini():
 @pytest.fixture
 def mock_whisper():
     """Mock whisper transcription function to avoid running neural networks locally."""
-    with patch("app.main.transcribe_audio") as mock_transcribe:
+    with patch("app.services.pipeline.transcribe_audio") as mock_transcribe:
         mock_transcribe.return_value = "This is a mock transcript of the recorded audio file."
         yield mock_transcribe
