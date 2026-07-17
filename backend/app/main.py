@@ -1,5 +1,6 @@
 import json
 import logging
+import mimetypes
 import os
 import uuid
 from typing import Optional
@@ -296,8 +297,56 @@ def get_meeting(meeting_id: int, current_user: User = Depends(get_current_user),
     return _meeting_to_dict(meeting)
 
 
+def _serve_audio_file(request: Request, file_path: str) -> Response:
+    """
+    Serves a local audio file with HTTP Range request support.
+
+    starlette.responses.FileResponse (as pinned - 0.38.6) doesn't implement
+    Range requests at all: it always streams the entire file and never sends
+    Accept-Ranges, regardless of a Range header on the request. Without that,
+    <audio> elements can't reliably seek - browsers report the seekable time
+    range as [0, 0] until the whole file has downloaded, so seeking before
+    that silently resets currentTime to 0. The StaticFiles mount this
+    endpoint replaced (for auth) supported Range requests natively, so this
+    is a regression relative to that, not a pre-existing limitation.
+    """
+    file_size = os.path.getsize(file_path)
+    media_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+
+    range_header = request.headers.get("range")
+    if range_header:
+        try:
+            range_spec = range_header.strip().removeprefix("bytes=")
+            start_str, _, end_str = range_spec.partition("-")
+            start = int(start_str) if start_str else 0
+            end = min(int(end_str), file_size - 1) if end_str else file_size - 1
+        except ValueError:
+            start, end = 0, file_size - 1
+
+        if start > end or start >= file_size:
+            return Response(status_code=416, headers={"Content-Range": f"bytes */{file_size}"})
+
+        with open(file_path, "rb") as f:
+            f.seek(start)
+            chunk = f.read(end - start + 1)
+
+        return Response(
+            content=chunk,
+            status_code=206,
+            media_type=media_type,
+            headers={
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(len(chunk)),
+            },
+        )
+
+    return FileResponse(file_path, media_type=media_type, headers={"Accept-Ranges": "bytes"})
+
+
 @app.get("/meetings/{meeting_id}/audio")
 def get_meeting_audio(
+    request: Request,
     meeting_id: int,
     token: Optional[str] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
@@ -314,7 +363,7 @@ def get_meeting_audio(
     if not meeting.audio_path or not os.path.exists(meeting.audio_path):
         raise HTTPException(404, "Audio file not found")
 
-    return FileResponse(meeting.audio_path)
+    return _serve_audio_file(request, meeting.audio_path)
 
 
 @app.get("/meetings/{meeting_id}/pdf")
