@@ -167,14 +167,14 @@ export default function Dashboard({ user, lang, meetings, loading, onSelectMeeti
 
       {/* Continue + Insight */}
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
-        <section className="lg:col-span-2">
+        <section className="min-w-0 lg:col-span-2">
           <h2 className="mb-3 text-lg font-bold text-slate-900">{t("Continue where you left off", "Weitermachen")}</h2>
           {resume ? (
             <button
               onClick={() => onSelectMeeting(resume)}
-              className="group flex w-full items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-soft transition-colors hover:border-brand-200 sm:gap-6 sm:p-6"
+              className="group flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-soft transition-colors hover:border-brand-200 sm:gap-5 sm:p-6"
             >
-              <span className="grid h-16 w-24 flex-shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-purple-500 text-white">
+              <span className="grid h-14 w-14 flex-shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-purple-500 text-white sm:h-16 sm:w-20">
                 <FileText className="h-6 w-6" />
               </span>
               <div className="min-w-0 flex-1">
@@ -199,7 +199,7 @@ export default function Dashboard({ user, lang, meetings, loading, onSelectMeeti
           )}
         </section>
 
-        <section>
+        <section className="min-w-0">
           <h2 className="mb-3 text-lg font-bold text-slate-900">{t("Insights", "Erkenntnisse")}</h2>
           <div className="relative h-[132px] overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-purple-50 p-6 shadow-soft">
             <Sparkles className="absolute right-4 top-4 h-5 w-5 text-brand-300" />
