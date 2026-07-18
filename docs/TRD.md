@@ -4,7 +4,7 @@ This document defines the technical architecture, application stack, API routes,
 
 ---
 
-![Orivon Sequence & API Flow](diagrams/trd.svg)
+![Orivon Sequence & API Flow](./diagrams/trd.svg)
 
 ---
 

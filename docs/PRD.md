@@ -23,7 +23,7 @@ Orivon is **NOT** a recording app or a transcription dashboard. It is an **AI Kn
 
 ## 2. User Journey & Personas
 
-![Orivon User Journey Map](diagrams/prd.svg)
+![Orivon User Journey Map](./diagrams/prd.svg)
 
 ### Personas
 1.  **Product & Engineering Leaders**: Who need decision tracking and action summaries across multiple standups and planning sessions.

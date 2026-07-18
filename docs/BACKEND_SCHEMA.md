@@ -4,7 +4,7 @@ This document describes the database schema, table columns, constraints, and rel
 
 ---
 
-![Orivon Database ER Diagram](diagrams/backend_schema.svg)
+![Orivon Database ER Diagram](./diagrams/backend_schema.svg)
 
 ---
 

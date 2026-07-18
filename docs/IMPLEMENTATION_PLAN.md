@@ -6,7 +6,7 @@ This document logs the development phases, architectural achievements, and verif
 
 ## 1. Development Phases Log
 
-![Orivon Development Workflow](diagrams/implementation_plan.svg)
+![Orivon Development Workflow](./diagrams/implementation_plan.svg)
 
 ### Phase 1: Foundation & local Audio Transcription (P0)
 *   **Deliverables**:

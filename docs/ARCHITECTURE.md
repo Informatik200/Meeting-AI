@@ -4,7 +4,7 @@ This document describes the high-level system design, data flows, components, li
 
 ---
 
-![Orivon Component Architecture](diagrams/architecture.svg)
+![Orivon Component Architecture](./diagrams/architecture.svg)
 
 ---
 

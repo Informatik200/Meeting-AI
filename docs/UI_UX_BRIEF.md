@@ -71,7 +71,7 @@ Hover / Active    : rgba(255, 255, 255, 0.05)
 
 ## 5. Column Grid Layout (Desktop)
 
-![Orivon Workspace Layout Columns](diagrams/ui_ux_brief.svg)
+![Orivon Workspace Layout Columns](./diagrams/ui_ux_brief.svg)
 
 Orivon structures its workspace in a clean 3-column rail grid:
 1.  **Sidebar (Left Rail)**: `240px` width. Standard navigation menu lists and accounts profile section.

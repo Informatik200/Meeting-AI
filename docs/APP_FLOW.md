@@ -4,7 +4,7 @@ This document maps out the states, screens, transitions, and user interactions o
 
 ---
 
-![Orivon App Flowchart](diagrams/app_flow.svg)
+![Orivon App Flowchart](./diagrams/app_flow.svg)
 
 -   **Auth Guard**: The main route (`app/page.tsx`) checks if the user is authenticated. If not, it renders `AuthScreen.tsx` as a full-page modal card.
 -   **Session Restore**: On page load, `refreshSession()` is called to fetch a new token from the `httpOnly` refresh cookie, keeping sessions intact.

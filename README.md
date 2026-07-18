@@ -95,7 +95,7 @@ A verification script is included in the project to run formatting, linting, typ
 
 Orivon structures its capabilities around a decoupled Next.js frontend and a FastAPI backend with background task execution:
 
-![Orivon Architecture Diagram](docs/diagrams/architecture.svg)
+![Orivon Architecture Diagram](./docs/diagrams/architecture.svg)
 
 For a detailed design review, see the [Technical Architecture (ARCHITECTURE)](docs/ARCHITECTURE.md) specification sheet.
 
