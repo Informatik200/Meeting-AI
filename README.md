@@ -86,5 +86,19 @@ A verification script is included in the project to run formatting, linting, typ
 ├── backend/            FastAPI, Whisper transcription, SQLite DB, and Gemini summaries
 ├── frontend/           Next.js client interface, components, and Playwright spec suites
 ├── design/             Stitch visual replica guidelines and assets
+├── docs/               Consolidated product, technical, schema, and design specifications
 └── scripts/            Unified quality verification scripts
 ```
+
+---
+
+## Documentation
+
+For deep dives into Orivon's design guidelines, data layouts, lifecycle flows, and technical definitions, see the following consolidated sheets:
+*   [Product Requirements Document (PRD)](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/PRD.md)
+*   [Technical Requirements Document (TRD)](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/TRD.md)
+*   [Application Interaction Flow](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/APP_FLOW.md)
+*   [UI/UX Design Specification](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/UI_UX_BRIEF.md)
+*   [Backend Database Schema](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/BACKEND_SCHEMA.md)
+*   [Implementation Log & Retrospective](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/IMPLEMENTATION_PLAN.md)
+
