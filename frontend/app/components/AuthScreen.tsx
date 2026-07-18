@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Video } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { GOOGLE_CLIENT_ID, login, loginWithGoogle, register, type AuthUser } from "../lib/auth";
 import type { Lang } from "../lib/types";
 
@@ -95,24 +95,24 @@ export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-bg-base p-4 text-text-primary">
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-brand-200/30 blur-3xl" />
-        <div className="absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-purple-200/30 blur-3xl" />
+        <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-accent-lime-dim/20 blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-accent-lime-dim/20 blur-3xl" />
       </div>
 
-      <div className="relative w-full max-w-md animate-rise rounded-2xl border border-slate-100 bg-white p-8 shadow-soft-lg">
-        <div className="mb-6 flex items-center gap-2 text-brand-600">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-brand-500 to-purple-500 text-white shadow-glow">
-            <Video className="h-4 w-4" />
+      <div className="relative w-full max-w-md animate-rise rounded-xl border border-border-subtle bg-surface-card p-8 shadow-soft-lg">
+        <div className="mb-6 flex items-center gap-2">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent-lime text-black font-extrabold text-sm shadow-glow">
+            O
           </span>
-          <span className="text-xl font-bold tracking-tight text-slate-900">Orivon</span>
+          <span className="text-xl font-bold tracking-tight text-text-primary">Orivon</span>
         </div>
 
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-2xl font-bold tracking-tight text-text-primary">
           {mode === "login" ? t("Welcome back", "Willkommen zurück") : t("Create your account", "Konto erstellen")}
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-text-secondary">
           {t("Your private AI knowledge workspace.", "Ihr privater KI-Wissensarbeitsbereich.")}
         </p>
 
@@ -154,7 +154,7 @@ export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
           </Field>
 
           {error && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600" role="alert">
+            <p className="rounded-lg bg-rose-950/25 border border-rose-500/20 px-3 py-2 text-sm text-rose-400" role="alert">
               {error}
             </p>
           )}
@@ -162,7 +162,7 @@ export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-500/25 transition-colors hover:bg-brand-700 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent-lime py-2.5 text-sm font-semibold text-black shadow-glow hover:bg-opacity-95 transition-colors cursor-pointer disabled:opacity-60"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {mode === "login" ? t("Sign in", "Anmelden") : t("Create account", "Konto erstellen")}
@@ -171,10 +171,10 @@ export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
 
         {GOOGLE_CLIENT_ID && (
           <>
-            <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wider text-slate-400">
-              <span className="h-px flex-1 bg-slate-200" />
+            <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wider text-text-muted">
+              <span className="h-px flex-1 bg-border-subtle" />
               {t("or", "oder")}
-              <span className="h-px flex-1 bg-slate-200" />
+              <span className="h-px flex-1 bg-border-subtle" />
             </div>
             <div ref={googleRef} className="google-btn-host flex justify-center" />
           </>
@@ -186,7 +186,7 @@ export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
             setMode((m) => (m === "login" ? "register" : "login"));
             setError("");
           }}
-          className="mt-6 w-full text-center text-sm text-slate-500 transition-colors hover:text-brand-600"
+          className="mt-6 w-full text-center text-sm text-text-secondary transition-colors hover:text-accent-lime cursor-pointer"
         >
           {mode === "login"
             ? t("New here? Create an account", "Neu hier? Konto erstellen")
@@ -198,12 +198,12 @@ export default function AuthScreen({ lang, onAuthenticated }: AuthScreenProps) {
 }
 
 const inputCls =
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200";
+  "w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2.5 text-sm text-text-primary transition-all placeholder:text-text-muted focus:border-accent-lime focus:outline-none focus:ring-1 focus:ring-accent-lime";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-muted">{label}</span>
       {children}
     </label>
   );

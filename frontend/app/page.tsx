@@ -49,6 +49,7 @@ export default function Home() {
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [emailGenerating, setEmailGenerating] = useState(false);
   const [globalChatEnabled, setGlobalChatEnabled] = useState(false);
+  const [autoStartRecord, setAutoStartRecord] = useState(false);
 
   // Memory graph
   const [peopleTags, setPeopleTags] = useState<EntityTag[]>([]);
@@ -262,15 +263,17 @@ export default function Home() {
 
   async function sendChatMessage(messageOverride?: string) {
     const textToSend = messageOverride ?? chatInput;
-    if (!textToSend.trim() || !selected) return;
+    if (!textToSend.trim()) return;
+    const isGlobal = globalChatEnabled || !selected;
+    if (!isGlobal && !selected) return; // safeguard
     if (!messageOverride) setChatInput("");
     setChatError("");
     setChatLoading(true);
     const newMessages: ChatMessage[] = [...chatMessages, { role: "user", text: textToSend }];
     setChatMessages(newMessages);
-    const endpoint = globalChatEnabled
+    const endpoint = isGlobal
       ? `${API_URL}/meetings/global/chat`
-      : `${API_URL}/meetings/${selected.id}/chat`;
+      : `${API_URL}/meetings/${selected!.id}/chat`;
     try {
       const res = await apiFetch(endpoint, {
         method: "POST",
@@ -327,8 +330,13 @@ export default function Home() {
     setView(key);
     setSelected(null);
   };
+  const triggerQuickRecord = () => {
+    setAutoStartRecord(true);
+    setView("uploads");
+    setSelected(null);
+  };
   const activeNav: NavKey = view === "detail" ? "meetings" : (view as NavKey);
-  const showCopilot = view === "detail" && !!selected && copilotOpen;
+  const showCopilot = copilotOpen;
 
   return (
     <>
@@ -341,8 +349,11 @@ export default function Home() {
         onSearchChange={setSearchQuery}
         onSearchSubmit={() => setView("search")}
         searchInputRef={searchInputRef}
-        onQuickRecord={() => setView("uploads")}
+        onQuickRecord={triggerQuickRecord}
         onLogout={() => void handleLogout()}
+        meetings={meetings}
+        selectedMeeting={selected}
+        onSelectMeeting={selectMeeting}
       >
         <div className="flex h-full">
           <div className="min-w-0 flex-1 overflow-y-auto">
@@ -354,6 +365,10 @@ export default function Home() {
                 loading={loading}
                 onSelectMeeting={selectMeeting}
                 onUpload={() => setView("uploads")}
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
+                onSearchSubmit={() => setView("search")}
+                onQuickRecord={triggerQuickRecord}
               />
             )}
             {(view === "meetings" || view === "search") && (
@@ -376,6 +391,8 @@ export default function Home() {
                   selectMeeting(m);
                 }}
                 onError={(msg) => console.error(msg)}
+                autoStart={autoStartRecord}
+                onStarted={() => setAutoStartRecord(false)}
               />
             )}
             {view === "settings" && (
@@ -419,9 +436,9 @@ export default function Home() {
             )}
           </div>
 
-          {/* Copilot rail */}
+          {/* Copilot rail (Orivon AI) */}
           {showCopilot && (
-            <div className="hidden w-[360px] flex-shrink-0 border-l border-slate-100 xl:block">
+            <div className="hidden w-[320px] flex-shrink-0 lg:block">
               <CopilotPanel
                 selected={selected}
                 lang={lang}
@@ -432,7 +449,7 @@ export default function Home() {
                 chatError={chatError}
                 chatHistoryRef={chatHistoryRef}
                 chatInputRef={chatInputRef}
-                globalChatEnabled={globalChatEnabled}
+                globalChatEnabled={globalChatEnabled || !selected}
                 emailGenerating={emailGenerating}
                 onSendMessage={(o) => void sendChatMessage(o)}
                 onChatInputChange={setChatInput}
@@ -447,11 +464,11 @@ export default function Home() {
 
       {/* Rename modal */}
       {renameId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm animate-fade-in" onClick={() => setRenameId(null)}>
-          <div className="w-full max-w-sm animate-rise rounded-2xl border border-slate-100 bg-white p-6 shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-slate-900">{t("Rename recording", "Aufnahme umbenennen")}</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in" onClick={() => setRenameId(null)}>
+          <div className="w-full max-w-sm animate-rise rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-text-primary">{t("Rename recording", "Aufnahme umbenennen")}</h3>
             <input
-              className="mt-4 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+              className="mt-4 w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-sm text-text-primary focus:border-accent-lime focus:outline-none focus:ring-1 focus:ring-accent-lime"
               value={renameTitle}
               onChange={(e) => setRenameTitle(e.target.value)}
               onKeyDown={(e) => {
@@ -460,13 +477,13 @@ export default function Home() {
               autoFocus
             />
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setRenameId(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">
+              <button onClick={() => setRenameId(null)} className="rounded-lg px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-elevated-hover transition-colors cursor-pointer">
                 {t("Cancel", "Abbrechen")}
               </button>
               <button
                 onClick={() => void handleRenameSave()}
                 disabled={!renameTitle.trim()}
-                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                className="rounded-lg bg-accent-lime px-4 py-2 text-sm font-semibold text-black hover:bg-opacity-95 transition-colors cursor-pointer disabled:opacity-40"
               >
                 {t("Save", "Speichern")}
               </button>
@@ -477,23 +494,23 @@ export default function Home() {
 
       {/* Delete modal */}
       {deleteId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm animate-fade-in" onClick={() => setDeleteId(null)}>
-          <div className="w-full max-w-sm animate-rise rounded-2xl border border-slate-100 bg-white p-6 shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center gap-2 text-rose-600">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in" onClick={() => setDeleteId(null)}>
+          <div className="w-full max-w-sm animate-rise rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center gap-2 text-rose-400">
               <AlertTriangle className="h-5 w-5" />
-              <h3 className="text-base font-bold text-slate-900">{t("Delete recording", "Aufnahme löschen")}</h3>
+              <h3 className="text-base font-bold text-text-primary">{t("Delete recording", "Aufnahme löschen")}</h3>
             </div>
-            <p className="text-sm leading-relaxed text-slate-500">
+            <p className="text-sm leading-relaxed text-text-secondary">
               {t(
                 "Are you sure you want to permanently delete this recording? This can't be undone.",
                 "Möchten Sie diese Aufnahme wirklich dauerhaft löschen? Dies kann nicht rückgängig gemacht werden.",
               )}
             </p>
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setDeleteId(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">
+              <button onClick={() => setDeleteId(null)} className="rounded-lg px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-elevated-hover transition-colors cursor-pointer">
                 {t("Cancel", "Abbrechen")}
               </button>
-              <button onClick={() => void handleDeleteConfirm()} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700">
+              <button onClick={() => void handleDeleteConfirm()} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 transition-colors cursor-pointer">
                 {t("Delete", "Löschen")}
               </button>
             </div>
@@ -501,6 +518,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* Shortcuts Help dialog */}
       {showShortcuts && <ShortcutsHelp lang={lang} onClose={() => setShowShortcuts(false)} />}
     </>
   );

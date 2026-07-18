@@ -1,37 +1,58 @@
-# Meeting AI
+# Orivon — The Fastest AI Meeting Workspace
 
-**A private, open-source meeting assistant.** Record in your browser or upload audio, then receive a transcript, concise summary, decisions, and action items.
+**Orivon** is a premium, open-source meeting assistant designed to get users to their meeting details within seconds. Record conversations directly in the browser or upload audio files, and immediately receive automated transcripts, formatted summaries, key points, action items, and decisions.
 
-## MVP features
+Everything is styled in a custom **Graphite Dark Theme** (featuring a minimal Notion-like spacing, Apple-like premium detail, and a focus-oriented workspace).
 
-- Browser microphone recording and audio upload (`.webm`, `.mp3`, `.wav`, `.m4a`, `.ogg`, `.mp4`)
-- Local speech-to-text with faster-whisper — audio never goes to a transcription API
-- Gemini-powered structured notes: title, summary, key points, decisions, and action items
-- A simple meeting dashboard with history and full transcript
-- SQLite by default: no Docker or database setup needed for the demo
+---
 
-## Stack
+## Key Features
 
-Next.js · FastAPI · faster-whisper · Google Gemini · SQLite (Postgres-ready)
+- **One-Click Recording & Upload**: Start browser microphone recording instantly or drop in audio files (`.webm`, `.mp3`, `.wav`, `.m4a`, `.ogg`, `.mp4`).
+- **Graphite Dark Theme & 3-Column Layout**: A unified, high-contrast dark theme optimized for large screen real estate with a left navigation rail, central workspace, and right AI helper rail.
+- **Orivon AI Assistant Panel**: Persistent chat helper that answers questions using the meeting context, drafts email follow-ups, exports PDFs, and routes queries globally when no specific meeting is selected.
+- **Local Speech-to-Text**: Offline transcription powered by `faster-whisper` ensures audio files are processed locally on-disk.
+- **AI-Powered Structured Notes**: Gemini-generated titles, editorial summaries, bulleted key points, decisions, and action items.
+- **Production-Ready Security & Multi-Tenancy**: Complete registration and login system with JWT tokens, Google Sign-In support, secure sessions, and strict data isolation across accounts.
+- **Keyboard Shortcuts**: High-speed productivity shortcuts (e.g. Space to play/pause, Arrow keys to skip, ⌘K focus search) to minimize click overhead.
 
-## Run locally
+---
 
-Prerequisites: **Node.js 20+**, Python **3.10+**, and a Gemini API key (free at https://aistudio.google.com/apikey).
+## Technology Stack
 
-Start the API in one terminal:
+- **Frontend**: Next.js (Turbopack, Tailwind CSS v4, TypeScript, React 19)
+- **Backend**: FastAPI (Python 3.9+, Uvicorn)
+- **Database**: SQLite (SQLAlchemy, Alembic database migration ready)
+- **Transcription**: `faster-whisper`
+- **Summary Generator**: Google Gemini API
 
+---
+
+## Local Setup
+
+### Prerequisites
+*   **Node.js 20+**
+*   **Python 3.9+**
+*   **Gemini API Key** (Get a free key from the [Google AI Studio](https://aistudio.google.com/apikey))
+
+---
+
+### Step 1: Start the Backend Service
+In a new terminal window:
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Add GEMINI_API_KEY to backend/.env
+# Open backend/.env and add your GEMINI_API_KEY
 uvicorn app.main:app --reload --port 8000
 ```
 
-Start the frontend in another terminal:
+---
 
+### Step 2: Start the Frontend Application
+In a separate terminal window:
 ```bash
 cd frontend
 cp .env.local.example .env.local
@@ -39,26 +60,31 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), record a short mock meeting, then click **Transcribe & summarize**. The first transcription downloads the selected Whisper model and can take a few minutes.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## API
+---
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| `GET` | `/health` | Health check |
-| `POST` | `/meetings/upload` | Upload audio and process it |
-| `GET` | `/meetings` | List processed meetings |
-| `GET` | `/meetings/{id}` | Get one meeting |
+## Running Verification Checks
 
-Interactive API docs are available at [http://localhost:8000/docs](http://localhost:8000/docs).
-
-## Project structure
-
-```
-backend/     FastAPI, Whisper transcription, Gemini summaries, SQLite/Postgres
-frontend/    Next.js recording UI and meeting dashboard
+A verification script is included in the project to run formatting, linting, type checks, and tests across both frontend and backend directories:
+```bash
+./scripts/verify.sh
 ```
 
-## Current MVP trade-offs
+### Manual Individual Commands:
+*   **Backend Pytest suite**: `pytest`
+*   **Backend Linting**: `ruff check .`
+*   **Frontend Type Check**: `npm run typecheck`
+*   **Frontend Linting**: `npm run lint`
+*   **Frontend E2E Tests**: `npm run test:e2e` (Playwright)
 
-Processing is synchronous, there is no authentication, and audio is stored on local disk. These are deliberate demo-stage choices; the next production increments are background jobs, authenticated accounts, object storage, RAG chat, and speaker diarization.
+---
+
+## Directory Structure
+
+```
+├── backend/            FastAPI, Whisper transcription, SQLite DB, and Gemini summaries
+├── frontend/           Next.js client interface, components, and Playwright spec suites
+├── design/             Stitch visual replica guidelines and assets
+└── scripts/            Unified quality verification scripts
+```

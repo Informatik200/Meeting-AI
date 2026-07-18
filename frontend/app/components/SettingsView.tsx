@@ -14,17 +14,17 @@ interface SettingsViewProps {
 }
 
 const inputCls =
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200";
-const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500";
+  "w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2.5 text-sm text-text-primary transition-all placeholder:text-text-muted focus:border-accent-lime focus:outline-none focus:ring-1 focus:ring-accent-lime";
+const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-muted";
 const primaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-brand-500/25 transition-colors hover:bg-brand-700 disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-accent-lime px-4 py-2 text-xs font-semibold text-black shadow-glow transition-colors hover:bg-opacity-95 disabled:opacity-40 cursor-pointer";
 
 function Section({ title, icon: Icon, children }: { title: string; icon: typeof User; children: React.ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-soft">
-      <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-4 text-slate-500">
-        <Icon className="h-[15px] w-[15px]" />
-        <h2 className="text-sm font-bold text-slate-900">{title}</h2>
+    <section className="overflow-hidden rounded-xl border border-border-subtle bg-surface-card shadow-soft">
+      <div className="flex items-center gap-2 border-b border-border-subtle px-6 py-4 text-text-muted">
+        <Icon className="h-4 w-4 text-accent-lime" />
+        <h2 className="text-sm font-bold text-text-primary">{title}</h2>
       </div>
       <div className="p-6">{children}</div>
     </section>
@@ -86,22 +86,22 @@ export default function SettingsView({ user, lang, onChangeLanguage, onProfileUp
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-8">
-      <header className="mb-6 animate-rise">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("Settings", "Einstellungen")}</h1>
-        <p className="mt-1 text-slate-500">{t("Manage your profile, security, and preferences.", "Verwalten Sie Profil, Sicherheit und Einstellungen.")}</p>
+    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-8 text-text-primary animate-rise">
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight text-text-primary">{t("Settings", "Einstellungen")}</h1>
+        <p className="mt-1 text-sm text-text-secondary">{t("Manage your profile, security, and preferences.", "Verwalten Sie Profil, Sicherheit und Einstellungen.")}</p>
       </header>
 
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* Profile */}
         <Section title={t("Profile", "Profil")} icon={User}>
-          <div className="mb-5 flex items-center gap-4 border-b border-slate-100 pb-5">
-            <span className="grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-purple-500 text-base font-bold text-white">
+          <div className="mb-5 flex items-center gap-4 border-b border-border-subtle pb-5">
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-accent-lime text-base font-bold text-black shadow-glow">
               {initials(user.name || user.email)}
             </span>
             <div>
-              <div className="text-sm font-semibold text-slate-900">{user.email}</div>
-              <div className="text-xs text-slate-400">{t("Your email address can't be changed yet.", "E-Mail kann derzeit nicht geändert werden.")}</div>
+              <div className="text-sm font-semibold text-text-primary">{user.email}</div>
+              <div className="text-xs text-text-muted">{t("Your email address can't be changed yet.", "E-Mail kann derzeit nicht geändert werden.")}</div>
             </div>
           </div>
           <form onSubmit={(e) => void saveName(e)}>
@@ -109,15 +109,15 @@ export default function SettingsView({ user, lang, onChangeLanguage, onProfileUp
               <span className={labelCls}>{t("Display name", "Anzeigename")}</span>
               <input id="settings-name" className={inputCls} type="text" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
             </label>
-            {nameStatus === "error" && <p className="mt-2 text-sm text-rose-600">{nameError}</p>}
+            {nameStatus === "error" && <p className="mt-2 text-sm text-rose-400">{nameError}</p>}
             <div className="mt-4 flex items-center justify-end gap-3">
               {nameStatus === "saved" && (
-                <span className="flex items-center gap-1.5 text-sm font-medium text-brand-600">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-lime">
                   <Check className="h-3.5 w-3.5" /> {t("Saved", "Gespeichert")}
                 </span>
               )}
               <button type="submit" className={primaryBtn} disabled={nameStatus === "saving" || !name.trim() || name.trim() === (user.name ?? "")}>
-                {nameStatus === "saving" && <Loader2 className="h-4 w-4 animate-spin" />}
+                {nameStatus === "saving" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {t("Save changes", "Speichern")}
               </button>
             </div>
@@ -133,7 +133,7 @@ export default function SettingsView({ user, lang, onChangeLanguage, onProfileUp
                 <input id="settings-current-password" className={inputCls} type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" required />
               </label>
             ) : (
-              <p className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
+              <p className="rounded-lg bg-surface-card/60 px-3 py-2.5 text-xs text-text-secondary border border-border-subtle">
                 {t("You signed up with Google — set a password below to also sign in with email.", "Sie haben sich mit Google angemeldet — legen Sie unten ein Passwort fest.")}
               </p>
             )}
@@ -145,15 +145,15 @@ export default function SettingsView({ user, lang, onChangeLanguage, onProfileUp
               <span className={labelCls}>{t("Confirm new password", "Passwort bestätigen")}</span>
               <input id="settings-confirm-password" className={inputCls} type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" minLength={8} required />
             </label>
-            {pwStatus === "error" && <p className="text-sm text-rose-600">{pwError}</p>}
+            {pwStatus === "error" && <p className="text-sm text-rose-400">{pwError}</p>}
             <div className="flex items-center justify-end gap-3">
               {pwStatus === "saved" && (
-                <span className="flex items-center gap-1.5 text-sm font-medium text-brand-600">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-lime">
                   <Check className="h-3.5 w-3.5" /> {t("Password updated", "Passwort aktualisiert")}
                 </span>
               )}
               <button type="submit" className={primaryBtn} disabled={pwStatus === "saving"}>
-                {pwStatus === "saving" && <Loader2 className="h-4 w-4 animate-spin" />}
+                {pwStatus === "saving" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {t("Update password", "Passwort aktualisieren")}
               </button>
             </div>
@@ -162,22 +162,24 @@ export default function SettingsView({ user, lang, onChangeLanguage, onProfileUp
 
         {/* Preferences */}
         <Section title={t("Preferences", "Einstellungen")} icon={Palette}>
-          <label className="block">
-            <span className={labelCls}>{t("Language", "Sprache")}</span>
-            <select
-              id="settings-language"
-              value={lang}
-              onChange={(e) => onChangeLanguage(e.target.value as Lang)}
-              className={inputCls}
-              aria-label="Select settings language"
-            >
-              <option value="en">English</option>
-              <option value="de">Deutsch</option>
-            </select>
-          </label>
-          <button onClick={onShowShortcuts} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50">
-            <Keyboard className="h-4 w-4" /> {t("Keyboard shortcuts", "Tastenkombinationen")}
-          </button>
+          <div className="space-y-4">
+            <label className="block">
+              <span className={labelCls}>{t("Language", "Sprache")}</span>
+              <select
+                id="settings-language"
+                value={lang}
+                onChange={(e) => onChangeLanguage(e.target.value as Lang)}
+                className={inputCls}
+                aria-label="Select settings language"
+              >
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+              </select>
+            </label>
+            <button onClick={onShowShortcuts} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-border-subtle bg-surface-card py-2.5 text-xs font-semibold text-text-secondary hover:bg-elevated-hover hover:text-text-primary transition-colors cursor-pointer">
+              <Keyboard className="h-4 w-4 text-accent-lime" /> {t("Keyboard shortcuts", "Tastenkombinationen")}
+            </button>
+          </div>
         </Section>
       </div>
     </div>

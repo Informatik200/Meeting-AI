@@ -173,38 +173,38 @@ export default function AudioPlayer({ src, ariaLabel = "Play audio recording" }:
   };
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-soft" aria-label={ariaLabel}>
+    <div className="rounded-xl border border-border-subtle bg-surface-card p-4 shadow-soft text-text-primary" aria-label={ariaLabel}>
       <audio ref={audioRef} src={src} preload="metadata" />
       <div className="flex items-center gap-4">
         <button
           onClick={togglePlay}
           disabled={audioError}
-          className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-brand-500 text-white shadow-md shadow-brand-500/30 transition-transform hover:scale-105 hover:bg-brand-600 disabled:opacity-50"
+          className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-accent-lime text-black shadow-glow transition-transform hover:scale-105 cursor-pointer disabled:opacity-50"
           aria-label={playing ? "Pause" : "Play"}
           title={playing ? "Pause (Space)" : "Play (Space)"}
         >
           {loading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-4.5 w-4.5 animate-spin" />
           ) : playing ? (
-            <Pause className="h-5 w-5 fill-current" />
+            <Pause className="h-4.5 w-4.5 fill-current" />
           ) : (
-            <Play className="h-5 w-5 translate-x-0.5 fill-current" />
+            <Play className="h-4.5 w-4.5 translate-x-0.5 fill-current" />
           )}
         </button>
 
         {/* Waveform */}
-        <div className="flex h-12 min-w-0 flex-1 items-center gap-[2px]" role="slider" aria-label="Audio scrubber" aria-valuenow={Math.round(currentTime)} aria-valuemax={Math.round(duration)}>
+        <div className="flex h-10 min-w-0 flex-1 items-center gap-[2px]" role="slider" aria-label="Audio scrubber" aria-valuenow={Math.round(currentTime)} aria-valuemax={Math.round(duration)}>
           {waveform.map((h, i) => (
             <button
               key={i}
               onClick={() => seekToBar(i)}
-              className="group flex h-full flex-1 items-center"
+              className="group flex h-full flex-1 items-center cursor-pointer"
               tabIndex={-1}
               aria-hidden="true"
             >
               <span
                 className={`w-full rounded-full transition-colors ${
-                  i < filledBars ? "bg-brand-500" : "bg-slate-200 group-hover:bg-slate-300"
+                  i < filledBars ? "bg-accent-lime" : "bg-border-strong group-hover:bg-text-muted"
                 }`}
                 style={{ height: `${Math.max(8, h * 100)}%` }}
               />
@@ -215,19 +215,19 @@ export default function AudioPlayer({ src, ariaLabel = "Play audio recording" }:
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
           <button
             onClick={cycleSpeed}
-            className="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            className="rounded border border-border-subtle px-1.5 py-0.5 text-[10px] font-semibold text-text-secondary hover:bg-elevated-hover hover:text-text-primary transition-colors cursor-pointer"
             aria-label="Playback speed"
           >
             {playbackRate}x
           </button>
-          <span className="font-mono text-xs text-slate-400">
+          <span className="font-mono text-[10px] text-text-muted">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
         </div>
       </div>
 
       {audioError && (
-        <p className="mt-2 text-xs text-rose-500" role="alert">
+        <p className="mt-2 text-xs text-rose-400" role="alert">
           ⚠︎ Audio failed to load
         </p>
       )}

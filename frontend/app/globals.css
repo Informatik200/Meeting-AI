@@ -13,32 +13,51 @@
    ============================================================ */
 
 @theme {
-  /* Brand (violet) */
-  --color-brand-50: #f5f3ff;
-  --color-brand-100: #ede9fe;
-  --color-brand-200: #ddd6fe;
-  --color-brand-300: #c4b5fd;
-  --color-brand-400: #a78bfa;
-  --color-brand-500: #8b5cf6;
-  --color-brand-600: #7c3aed;
-  --color-brand-700: #6d28d9;
-  --color-brand-800: #5b21b6;
-  --color-brand-900: #4c1d95;
+  /* Graphite Palette */
+  --color-bg-base: #0A0A0A;
+  --color-surface-card: #121212;
+  --color-elevated-hover: #1A1A1A;
+  --color-bg-active: rgba(255, 255, 255, 0.05);
 
-  /* Purple companion (for gradients) */
-  --color-purple-50: #faf5ff;
-  --color-purple-100: #f3e8ff;
-  --color-purple-500: #a855f7;
-  --color-purple-600: #9333ea;
+  /* Subtle Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-mid: rgba(255, 255, 255, 0.12);
+  --color-border-strong: rgba(255, 255, 255, 0.20);
+
+  /* Text Colors */
+  --color-text-primary: #E8E6E1;
+  --color-text-secondary: #C4C0B8;
+  --color-text-muted: #6B6660;
+
+  /* Accent (Acid Lime) */
+  --color-accent-lime: #C8F135;
+  --color-accent-lime-dim: rgba(200, 241, 53, 0.15);
+
+  /* Fallback color-brand mappings for existing classes */
+  --color-brand-50: rgba(200, 241, 53, 0.05);
+  --color-brand-100: rgba(200, 241, 53, 0.10);
+  --color-brand-200: rgba(200, 241, 53, 0.20);
+  --color-brand-300: rgba(200, 241, 53, 0.30);
+  --color-brand-400: #c8f135;
+  --color-brand-500: #c8f135;
+  --color-brand-600: #bada30;
+  --color-brand-700: #a9c62c;
+  --color-brand-800: #98b227;
+  --color-brand-900: #879e23;
+
+  --color-purple-50: rgba(255, 255, 255, 0.02);
+  --color-purple-100: rgba(255, 255, 255, 0.04);
+  --color-purple-500: #c8f135;
+  --color-purple-600: #bada30;
 
   /* Fonts (wired to next/font variables in layout.tsx) */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Soft ambient shadows (from Stitch export) */
-  --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --shadow-soft-lg: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 8px -2px rgba(0, 0, 0, 0.04);
-  --shadow-glow: 0 4px 20px -2px rgba(124, 58, 237, 0.25);
+  /* Soft ambient shadows (tuned for dark surfaces) */
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-soft-lg: 0 10px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 4px 20px -2px rgba(200, 241, 53, 0.15);
 }
 
 @layer base {
@@ -49,25 +68,25 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: #f8fafc; /* slate-50 */
-    color: #0f172a; /* slate-900 */
+    background-color: #0A0A0A;
+    color: #E8E6E1;
   }
 
-  /* Custom scrollbars — thin, unobtrusive, on-brand */
+  /* Custom scrollbars — thin, unobtrusive, on-brand for dark theme */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: #1A1A1A transparent;
   }
   *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   *::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
+    background: #1A1A1A;
     border-radius: 9999px;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: #cbd5e1;
+    background: #2A2A2A;
   }
   *::-webkit-scrollbar-track {
     background: transparent;
@@ -109,19 +128,21 @@
     margin: 0.2rem 0;
   }
   .copilot-markdown code {
-    background: rgba(124, 58, 237, 0.08);
+    background: rgba(200, 241, 53, 0.1);
     padding: 1px 5px;
     border-radius: 4px;
     font-family: var(--font-mono);
     font-size: 0.85em;
+    color: #C8F135;
   }
   .copilot-markdown pre {
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
+    background: #121212;
+    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 8px;
     padding: 10px;
     overflow-x: auto;
     margin: 0.5rem 0;
+    color: #E8E6E1;
   }
 
   /* Animation utilities */
@@ -132,7 +153,7 @@
     animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .animate-shimmer {
-    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background: linear-gradient(90deg, #121212 25%, #1A1A1A 50%, #121212 75%);
     background-size: 200% 100%;
     animation: shimmer 1.6s ease-in-out infinite;
   }

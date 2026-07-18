@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Orivon Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+              900: '#4c1d95',
+            },
+            slate: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#475569',
+              700: '#334155',
+              800: '#1e293b',
+              900: '#0f172a',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+          },
+          boxShadow: {
+            'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-fonts">
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+    }
+  </style>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+</head>
+<body class="text-slate-800 h-screen flex overflow-hidden bg-slate-50">
+<!-- BEGIN: Sidebar -->
+<aside class="w-64 bg-white border-r border-slate-100 flex flex-col h-full flex-shrink-0" data-purpose="sidebar">
+<!-- Brand -->
+<div class="h-16 flex items-center px-6 border-b border-slate-50/50">
+<div class="flex items-center gap-2 text-brand-600">
+<i class="fa-solid fa-circle-nodes text-xl"></i>
+<span class="text-xl font-bold tracking-tight text-slate-900">Orivon</span>
+</div>
+<button class="ml-auto text-slate-400 hover:text-slate-600 transition-colors">
+<i class="fa-solid fa-bars-staggered"></i>
+</button>
+</div>
+<!-- Navigation -->
+<nav class="flex-1 overflow-y-auto py-4 px-3" data-purpose="main-navigation">
+<ul class="space-y-1">
+<li>
+<a class="flex items-center gap-3 px-3 py-2 bg-brand-50 text-brand-700 rounded-lg font-medium transition-colors" href="#">
+<i class="fa-solid fa-house w-5 text-center"></i>
+            Home
+          </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<i class="fa-solid fa-video w-5 text-center text-slate-400"></i>
+            Meetings
+          </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<i class="fa-solid fa-robot w-5 text-center text-slate-400"></i>
+            AI Copilot
+          </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<i class="fa-solid fa-magnifying-glass w-5 text-center text-slate-400"></i>
+            Search
+            <span class="ml-auto text-xs font-mono text-slate-400 border border-slate-200 rounded px-1.5 py-0.5 bg-slate-50">⌘K</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<i class="fa-solid fa-cloud-arrow-up w-5 text-center text-slate-400"></i>
+            Uploads
+          </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<i class="fa-regular fa-calendar w-5 text-center text-slate-400"></i>
+            Calendar
+          </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<i class="fa-solid fa-plug w-5 text-center text-slate-400"></i>
+            Integrations
+          </a>
+</li>
+</ul>
+<!-- Spaces -->
+<div class="mt-8">
+<h3 class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Spaces</h3>
+<ul class="space-y-1">
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<span class="w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center text-xs"><i class="fa-solid fa-user"></i></span>
+              Personal
+            </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<span class="w-5 h-5 rounded bg-purple-100 text-purple-600 flex items-center justify-center text-xs"><i class="fa-solid fa-briefcase"></i></span>
+              Work
+            </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<span class="w-5 h-5 rounded bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs"><i class="fa-solid fa-book"></i></span>
+              Study
+            </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg font-medium transition-colors" href="#">
+<span class="w-5 h-5 rounded bg-orange-100 text-orange-600 flex items-center justify-center text-xs"><i class="fa-solid fa-flask"></i></span>
+              Research
+            </a>
+</li>
+</ul>
+<button class="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg font-medium transition-colors border border-dashed border-slate-300">
+<i class="fa-solid fa-plus text-sm"></i>
+          New Space
+        </button>
+</div>
+</nav>
+<!-- User Profile -->
+<div class="p-4 border-t border-slate-100">
+<div class="flex items-center gap-3 hover:bg-slate-50 p-2 rounded-lg cursor-pointer transition-colors">
+<img alt="Rahul Tanwar" class="w-9 h-9 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBqkmh9sqxzawqBiUGTlygLOLuDfhYwHLOJHgl7QxbqeK-mCSPfeBvz2etUL4WSJ2yU2tfiX3une8GaHpbph0uz7QvssoLxiWDIFl5Gm0ElnadwBeVCJQvZxNNUSIbag_m8A3VDgwrWIwKrWtMY18vkPPGQsYLn7PhypDtFkyifWTe5IpP43LTDGE1PZMGBw0F8mEoqdCTLH_pdq-yxeRnv5z2msAdIEJUa9ZQVzK8i6Cf_NQUp7kOd9jadW6gDmeItkKWQ_8ilimQ"/>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold text-slate-900 truncate">Rahul Tanwar</p>
+<p class="text-xs text-slate-500 truncate">Pro Plan</p>
+</div>
+<i class="fa-solid fa-ellipsis text-slate-400"></i>
+</div>
+</div>
+</aside>
+<!-- END: Sidebar -->
+<!-- BEGIN: Main Content Area -->
+<main class="flex-1 flex flex-col h-full overflow-hidden relative" data-purpose="main-content">
+<!-- Top Header -->
+<header class="h-16 flex items-center justify-between px-8 bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-10" data-purpose="top-header">
+<!-- Search -->
+<div class="flex-1 max-w-2xl relative">
+<i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+<input class="w-full pl-10 pr-12 py-2 bg-slate-100/50 border-transparent rounded-lg text-sm focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all placeholder:text-slate-400" placeholder="Search meetings, people, topics..." type="text"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400 border border-slate-200 rounded px-1.5 py-0.5 bg-white shadow-sm">⌘K</span>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-4 ml-4">
+<button class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm shadow-brand-500/20 flex items-center gap-2">
+<i class="fa-solid fa-video"></i>
+          Quick Record
+        </button>
+<button class="w-8 h-8 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors relative">
+<i class="fa-regular fa-bell"></i>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+<button class="w-8 h-8 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors">
+<i class="fa-solid fa-gear"></i>
+</button>
+<div class="w-px h-6 bg-slate-200 mx-1"></div>
+<img alt="Profile" class="w-8 h-8 rounded-full border border-slate-200" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRl4O5ua2LhOwxKwJHucXKEueyi_khBTIo1XKvrpXXyGI1Zvf1NB9Fxvwr90mus4Ta7EeF4FE4u_iqFrYuguDUYuHzOULGfdHppMWtKCIR6Y0XJpd0wmEkyU6u_Cq44UypDv0ZTovP5WS52CZOpeYiwbFYY517VrattVeS4HeUYKbXdxd82myj_WEchzOMuOme3gHUSvkgsORPSU9D-ntMUJhXHY9JEs3Qcq6rCCiWYXLuwfBBUIBQoqmuWbHWczK2pDxzgW-oJlE"/>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto p-8" data-purpose="dashboard-content">
+<div class="max-w-6xl mx-auto space-y-8">
+<!-- Greeting -->
+<section data-purpose="greeting">
+<h1 class="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            Good morning, Rahul <span class="text-2xl">👋</span>
+</h1>
+<p class="text-slate-500 mt-1">You have <strong class="text-slate-700 font-medium">3</strong> meetings today and <strong class="text-slate-700 font-medium">5</strong> action items.</p>
+</section>
+<!-- Stats Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-purpose="stats-cards">
+<!-- Meetings -->
+<div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-soft relative overflow-hidden group hover:border-brand-200 transition-colors cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-3xl font-bold text-slate-900">12</h3>
+<p class="text-sm font-medium text-slate-700 mt-1">Meetings</p>
+<p class="text-xs text-slate-400 mt-0.5">This Week</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-brand-50 flex items-center justify-center text-brand-600">
+<i class="fa-solid fa-chart-line"></i>
+</div>
+</div>
+<!-- Decorative Chart -->
+<div class="h-10 w-full relative">
+<svg class="absolute bottom-0 w-full h-full text-brand-200 fill-current opacity-20" preserveaspectratio="none" viewbox="0 0 100 30">
+<path d="M0,30 L0,15 Q10,5 20,20 T40,10 T60,25 T80,10 T100,20 L100,30 Z"></path>
+</svg>
+<svg class="absolute bottom-0 w-full h-full text-brand-500 fill-none stroke-current stroke-2" preserveaspectratio="none" viewbox="0 0 100 30">
+<path d="M0,15 Q10,5 20,20 T40,10 T60,25 T80,10 T100,20"></path>
+</svg>
+</div>
+</div>
+<!-- Action Items -->
+<div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-soft hover:border-emerald-200 transition-colors cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-3xl font-bold text-slate-900">3</h3>
+<p class="text-sm font-medium text-slate-700 mt-1">Action Items</p>
+<p class="text-xs text-slate-400 mt-0.5">Due Today</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+<i class="fa-solid fa-check-square"></i>
+</div>
+</div>
+</div>
+<!-- Decisions -->
+<div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-soft hover:border-amber-200 transition-colors cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-3xl font-bold text-slate-900">2</h3>
+<p class="text-sm font-medium text-slate-700 mt-1">Decisions</p>
+<p class="text-xs text-slate-400 mt-0.5">Need Follow-up</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-500">
+<i class="fa-solid fa-lightbulb"></i>
+</div>
+</div>
+</div>
+<!-- Recordings -->
+<div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-soft hover:border-pink-200 transition-colors cursor-pointer">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-3xl font-bold text-slate-900">5</h3>
+<p class="text-sm font-medium text-slate-700 mt-1">Recordings</p>
+<p class="text-xs text-slate-400 mt-0.5">Processing</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-pink-50 flex items-center justify-center text-pink-500 relative">
+<i class="fa-solid fa-spinner animate-spin"></i>
+<div class="absolute inset-0 rounded-full border-2 border-pink-200 border-t-pink-500 animate-spin" style="animation-duration: 2s;"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Middle Section (Continue & Insights) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Continue where you left off -->
+<section class="lg:col-span-2 space-y-4" data-purpose="continue-watching">
+<h2 class="text-lg font-semibold text-slate-900">Continue where you left off</h2>
+<div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-soft flex items-center gap-6 group cursor-pointer hover:border-brand-200 transition-colors">
+<div class="w-32 h-20 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0 relative">
+<img alt="Video thumbnail" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1bJMeoC3wv3BAcqkMn_RXnT2E3l8a2hCmJHWIlui0WdRSZBtM5-cMtKiCxxFKWJlg_GfYIx-3h_RMVTCs4gn9bJ24uwlzaCUa1-FE2zzop4MffyVNfgPzfJaZFZowI1FSrpsli5wuR4xUg9KzXVOOAD6bxvfS5btbB_7mRZe6E-AWXfyCgG1dAGq9jHm8AfyS4PSp3Kta3gtJRBQcDbU5WfNdqZmW_CWViXYFeCWhB97qSECw1235_TxSAOUQAUhpeJgRKEuVC2Y"/>
+<div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+<div class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">18:42</div>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-base font-bold text-slate-900 truncate group-hover:text-brand-600 transition-colors">Q3 Product Strategy Sync</h3>
+<p class="text-sm text-slate-500 mt-1 flex items-center gap-2">
+<span class="flex -space-x-2">
+<img class="w-5 h-5 rounded-full border-2 border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8nmVcmLV1JVbF6fdzaXsr3HDF_soK-1bxktTWrSEGgK5wEOHlMNmr6__pl8xLG9k-20ZTo2-Bhkw4kIg8cLyKdOxhYha4rclvyTGXuwvsbVIZXYfJ0NacgbzS6mrnYHe4-m0Ck0E9jHQhZNDCrrfectcGLWFV5fEEWbJZbq-KpUkveLQRzf5kc6FfXhuj4EjI_nuwMqb_jTxt5lCXNz54NwsEyRlryrDpv2ttPEaDWfGm2jnvNwBfsL2bnLP6AN3V9YVMVRZo7rk"/>
+<img class="w-5 h-5 rounded-full border-2 border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmjTTODWAiMyg75et5Dwx4zsd5SI9tRkWH3RKjgavkA_67Mu8YC7nR2f9bHbnsF5Yf7nVop7PSVvKYkabmmRiPFh53EIxQMtI5DCMgbHTqk7oAbf8peUjeKUGuligN-Uvhtrdogp8LgEswDOzUvhkMn30ohI-41_F8Uw94RjE0o-CpGxI_gWWfTqqO_3gZp4ZLdLlJhcWaodVvioPXtezjoS1SrgHINC7mbFXfX4vopLAtvoYTdB4gy99Q8aKv-FNyHiAzbK1GdhI"/>
+<span class="w-5 h-5 rounded-full border-2 border-white bg-slate-100 text-[8px] font-medium flex items-center justify-center text-slate-600">+3</span>
+</span>
+                  • Yesterday
+                </p>
+<!-- Progress Bar -->
+<div class="mt-4 flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-brand-500 rounded-full w-[65%]"></div>
+</div>
+<span class="text-xs text-slate-400 font-mono">12:28 / 18:42</span>
+</div>
+</div>
+<button class="w-12 h-12 rounded-full bg-brand-500 text-white flex items-center justify-center shadow-md shadow-brand-500/30 group-hover:bg-brand-600 transition-transform group-hover:scale-105 flex-shrink-0">
+<i class="fa-solid fa-play ml-1"></i>
+</button>
+</div>
+</section>
+<!-- AI Insight -->
+<section class="lg:col-span-1 space-y-4" data-purpose="ai-insight">
+<h2 class="text-lg font-semibold text-slate-900 invisible lg:visible">Insights</h2>
+<div class="bg-gradient-to-br from-brand-50 to-purple-50 p-6 rounded-2xl border border-brand-100 shadow-soft relative overflow-hidden h-[132px]">
+<!-- Decorative Sparkle -->
+<i class="fa-solid fa-sparkles absolute top-4 right-4 text-brand-300 text-xl"></i>
+<h3 class="text-sm font-semibold text-brand-800 flex items-center gap-2 mb-3">
+<i class="fa-solid fa-wand-magic-sparkles text-brand-500"></i> AI Insight
+              </h3>
+<p class="text-sm text-slate-700 leading-relaxed relative z-10">
+                Budget approval was discussed in 2 meetings.<br/>
+                3 decisions were made.<br/>
+                5 action items are pending.
+              </p>
+<button class="mt-3 text-xs font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1 bg-white/60 px-2 py-1 rounded-md w-fit hover:bg-white transition-colors relative z-10 border border-brand-200/50">
+                View all insights <i class="fa-solid fa-arrow-right text-[10px]"></i>
+</button>
+<!-- Abstract Shape -->
+<div class="absolute -bottom-8 -right-8 w-32 h-32 bg-brand-200/30 rounded-full blur-2xl"></div>
+</div>
+</section>
+</div>
+<!-- Lists Bottom Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Recent Meetings -->
+<section class="lg:col-span-2 space-y-4" data-purpose="recent-meetings">
+<div class="flex items-center justify-between">
+<h2 class="text-lg font-semibold text-slate-900">Recent Meetings</h2>
+<a class="text-sm font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1" href="#">
+                View all meetings <i class="fa-solid fa-arrow-right text-xs"></i>
+</a>
+</div>
+<div class="bg-white rounded-2xl border border-slate-100 shadow-soft overflow-hidden">
+<ul class="divide-y divide-slate-100">
+<!-- Item 1 -->
+<li class="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer">
+<div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-100 transition-colors">
+<i class="fa-regular fa-file-video text-lg"></i>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-sm font-bold text-slate-900 truncate">Q3 Product Strategy Sync</h4>
+<p class="text-xs text-slate-500 mt-0.5">Yesterday • 18:42</p>
+</div>
+<div class="flex -space-x-2 hidden sm:flex">
+<img class="w-6 h-6 rounded-full border-2 border-white z-30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuEpmsMd-yTRTzOkNySc7FBI0jF5Oosf5ZvZIsA3lwi73r-gKmmlz6o9qqPEGdSsO6wF4cwrBufdg3FOsfhaKIRZs-BFnorkGpaqct928DB5obC73rm2L3Fbp2zPxauRt1YQkcxiqOlBvU9_z9bTS7wKTV2mXyOOsxRB5fEixJ9IDzgtwB22mpMDahOmpKQJjdXv4FBF_oItZnqd2Ubq9H6qBDvjKNwrcPInHmkowkOZNn9bhV3EkL8SKRSfUPyjPldGTYztD_vFA"/>
+<img class="w-6 h-6 rounded-full border-2 border-white z-20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMZIGWOCC_nuCPBOzF1etGTYLPWDq57C_lNsal5UzWBGKlpb_3sc26E88vtWDCUlcXgLqFMwrog74yxYsW-plBf_InMNgQkKlK1oimYhY7rfi5fd7-z-KB2nLKIuWwI2grkX7NJBEhrZ28BDwU2JH1E37E1slL8RrVwI3gN0mMEttjFiMHDe1dveFno7M6OKX8TDHabxZDM_W6weINm1GUZUPgJigqV9Tc9Wz5w3GOxgM45uFcEz_mLRoSruGJqTNM7Gz1hgjFgsk"/>
+<img class="w-6 h-6 rounded-full border-2 border-white z-10" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAU8RA8Li1gzfsDY02yiaZlazV6mSo_7CWPcO6Y-T1nFa4QdtK8mr8TJ-BaCJRYOQJdzyYVHx15pUm-529UMxTIXZrzqkyvN0NK3pQBgjQbJ7q9p_TjWxn27fHz6Xlhl3f7USjEWm5U7paXvB30z9OB8SnAVjNrwdlA16gc_KzupFnXVbxl7T9NcdE3mX_DHkcu4dXjoljs1cIE1FbUsIr9a0Pg0m18Xr1E1BcGoVXN5I-Lv0-71_qMsVqquMskAX8O-4Bw0JAjsYA"/>
+</div>
+<span class="px-2.5 py-1 rounded-md bg-purple-50 text-purple-600 text-xs font-medium border border-purple-100 hidden md:block">Work</span>
+<span class="text-sm text-slate-400 font-mono ml-4 hidden sm:block">18:42</span>
+</li>
+<!-- Item 2 -->
+<li class="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer">
+<div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+<i class="fa-regular fa-file-video text-lg"></i>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-sm font-bold text-slate-900 truncate">Design Review - Orivon v2</h4>
+<p class="text-xs text-slate-500 mt-0.5">May 25 • 16:11</p>
+</div>
+<div class="flex -space-x-2 hidden sm:flex">
+<img class="w-6 h-6 rounded-full border-2 border-white z-30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwWrOO30-MZnkg7rfG0DHAS27XWW6lM_OZuNFA3f2Cy6yINH7tE3TSsdDIWtivDlEtmH4xUt7wio2sWLoHOwVo0oxOIzC2YhHJvubcZ41MYjxvDruLU9wSxu7qhb3ah88BBBGgkb-I2kY8ukerSNZgKyLYaf-l3Stv-Ldf3qDJKl-F6ArUUSxEwiRYY0Z-r70MOEKSWISEIPkxWJGlAF4iBCkr2AOhcH4cN_KHYMze7iwjS0iNJ7e3LijquAtIBeuZTqXftcYkQgE"/>
+<img class="w-6 h-6 rounded-full border-2 border-white z-20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBo_YpmCApnJurBgC_fwTQJ2SBq1Olc9vLD6c3BzZy0n1xnCwfSwf2QwygeJEndeYkGlw-xqYByoo-RwswRa2cHvpfFDiyiEq2IWUwGh86vPxjN5QezKxOZZxbfAaa7NE9aEu8Xf7tyzalORJkznW7KRfiXtgbzK0hRNsl4qTRJPvw0VAK5xX5uPDUv-T0NVDYprrbP0xtk-PaRg2pDLeLJjNjgsJZxVi6FVJPx6D0lAz9kLjAitBiTe3coj7WiCM4hSBQ3SeyQo3o"/>
+</div>
+<span class="px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 text-xs font-medium border border-blue-100 hidden md:block">Design</span>
+<span class="text-sm text-slate-400 font-mono ml-4 hidden sm:block">16:11</span>
+</li>
+<!-- Item 3 -->
+<li class="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer">
+<div class="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center flex-shrink-0 group-hover:bg-orange-100 transition-colors">
+<i class="fa-regular fa-file-video text-lg"></i>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-sm font-bold text-slate-900 truncate">User Research Interview</h4>
+<p class="text-xs text-slate-500 mt-0.5">May 24 • 32:16</p>
+</div>
+<div class="flex -space-x-2 hidden sm:flex">
+<img class="w-6 h-6 rounded-full border-2 border-white z-30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbQYGIBY-EjTXInWO27tiYfxZ6N_ZMMz02zMrnacgVqi3o4G_yMUiieb8iaZFfHcKQCh5YApIKU8KDD4a_kJhPaXXqdStaV5pXPUKInnD3DfyY5oRy5didkLcRegMpDW63FUUGWqhnVI3_clUS7LEp4IdWF6ka4ZPfEwOpvZookZU_-FPaAxsmdlM4SPM2sxtuntubTmMmXBNuU1YKoqNCVdKEHxKyWzunVpkkVKNw16yqnP6gMe7Wl1Up6S_e3yMavpIlKFZbOPk"/>
+<img class="w-6 h-6 rounded-full border-2 border-white z-20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAywC84q2o4LFe9g6CbREx4KLYY-DPw7PEscls2cQmZYSxCkCmITeTnnm6FA40hE-oN_GPgq01BED4Zcev0g19inJr1tGwZxKdzrkB8IsCLaZTXHPbny_2xZNDhPD1zKh6Rcbe0gjlyfP073C8rN2rB9OPIW02zcqgXGHWbgu2K4uhiPEsrxY6HmjBxSy5W6ojHBjdg0KKMvdw8ezsCuZ7PtpyUC2DiHL8Nfk9d8teLwaFqBBBIHT2MiM_sfzxwGzvoMHU9h60wowI"/>
+<img class="w-6 h-6 rounded-full border-2 border-white z-10" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqk3EjddEbJlGUwb0kPIT-DnZMXLIRsQYcIa-j8MhVh9PcrXjA4xt980Vnu9yYH_QluVo-uEmasBQhlLI4gtZp_PoqOKUDRAYybMgFnR46wZNdUMypx6Yem6DT2cSZDPOVmirW-IBN78s6KqsyggsQbkR9mWE0NCP2Us9gLICS-fn2qAGPgo0iMMYNPb9HQjCXu8PGX7XqArltDqN5Wbif3iOC4L8RbNAepsN00hzMdgmyspfT8nM_ydPAMjEkupIS6kzwUQRxTv4"/>
+</div>
+<span class="px-2.5 py-1 rounded-md bg-orange-50 text-orange-600 text-xs font-medium border border-orange-100 hidden md:block">Research</span>
+<span class="text-sm text-slate-400 font-mono ml-4 hidden sm:block">32:16</span>
+</li>
+</ul>
+</div>
+</section>
+<!-- Upcoming -->
+<section class="lg:col-span-1 space-y-4" data-purpose="upcoming-meetings">
+<div class="flex items-center justify-between">
+<h2 class="text-lg font-semibold text-slate-900">Upcoming</h2>
+<a class="text-sm font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1" href="#">
+                View calendar <i class="fa-solid fa-arrow-right text-xs"></i>
+</a>
+</div>
+<div class="bg-white rounded-2xl border border-slate-100 shadow-soft overflow-hidden">
+<ul class="divide-y divide-slate-100">
+<!-- Item 1 -->
+<li class="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3 group">
+<div class="flex items-start gap-3 min-w-0">
+<div class="w-2 h-2 rounded-full bg-brand-500 mt-1.5 flex-shrink-0"></div>
+<div>
+<h4 class="text-sm font-bold text-slate-900 truncate">Product Standup</h4>
+<p class="text-xs text-slate-500 mt-0.5">Today • 10:00 AM</p>
+</div>
+</div>
+<button class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-all flex-shrink-0 shadow-sm">Join</button>
+</li>
+<!-- Item 2 -->
+<li class="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3 group">
+<div class="flex items-start gap-3 min-w-0">
+<div class="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
+<div>
+<h4 class="text-sm font-bold text-slate-900 truncate">Client Call - Nova Labs</h4>
+<p class="text-xs text-slate-500 mt-0.5">Today • 2:00 PM</p>
+</div>
+</div>
+<button class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-all flex-shrink-0 shadow-sm">Join</button>
+</li>
+<!-- Item 3 -->
+<li class="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3 group">
+<div class="flex items-start gap-3 min-w-0">
+<div class="w-2 h-2 rounded-full bg-orange-500 mt-1.5 flex-shrink-0"></div>
+<div>
+<h4 class="text-sm font-bold text-slate-900 truncate">Research Sync</h4>
+<p class="text-xs text-slate-500 mt-0.5">Tomorrow • 11:00 AM</p>
+</div>
+</div>
+<button class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-all flex-shrink-0 shadow-sm">Join</button>
+</li>
+</ul>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+<!-- END: Main Content Area -->
+</body></html>
