@@ -110,9 +110,7 @@ def validate_upload_path(filename: str, upload_dir: str) -> str:
         # Get the real path (resolves symlinks)
         real_upload_dir = os.path.realpath(upload_dir_abs)
         if not full_path.startswith(real_upload_dir):
-            raise FileValidationError(
-                f"Path traversal detected: {filename} attempts to escape {upload_dir}"
-            )
+            raise FileValidationError(f"Path traversal detected: {filename} attempts to escape {upload_dir}")
     except Exception as e:
         raise FileValidationError(f"Path validation error: {e}")
 

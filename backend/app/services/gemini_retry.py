@@ -93,15 +93,11 @@ def retry_with_backoff(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
                 raise
 
             if attempt < MAX_RETRIES:
-                logger.warning(
-                    f"Attempt {attempt} failed (retryable), waiting {wait_time}s before retry: {e}"
-                )
+                logger.warning(f"Attempt {attempt} failed (retryable), waiting {wait_time}s before retry: {e}")
                 time.sleep(wait_time)
                 wait_time = min(wait_time * BACKOFF_MULTIPLIER, MAX_WAIT_SECONDS)
             else:
                 logger.error(f"All {MAX_RETRIES} attempts failed for {func.__name__}")
 
     # Should not reach here, but raise if we do
-    raise GeminiRetryError(
-        f"Failed after {MAX_RETRIES} retries for {func.__name__}"
-    ) from last_error
+    raise GeminiRetryError(f"Failed after {MAX_RETRIES} retries for {func.__name__}") from last_error
