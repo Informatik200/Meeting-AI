@@ -4,7 +4,6 @@ Ensures all required production settings are configured.
 """
 
 import logging
-from typing import Optional
 
 from app.config import settings
 

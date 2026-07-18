@@ -5,8 +5,6 @@ File upload validation: MIME types, symlink checks, path traversal prevention.
 import logging
 import mimetypes
 import os
-from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("app")
 

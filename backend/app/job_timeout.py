@@ -2,7 +2,6 @@
 Job timeout and recovery mechanisms for background tasks.
 """
 
-import asyncio
 import logging
 import time
 from typing import Callable, Optional
