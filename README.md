@@ -85,21 +85,55 @@ A verification script is included in the project to run formatting, linting, typ
 ```
 ├── backend/            FastAPI, Whisper transcription, SQLite DB, and Gemini summaries
 ├── frontend/           Next.js client interface, components, and Playwright spec suites
-├── design/             Stitch visual replica guidelines and assets
 ├── docs/               Consolidated product, technical, schema, and design specifications
 └── scripts/            Unified quality verification scripts
 ```
 
 ---
 
+## Technical Architecture
+
+Orivon structures its capabilities around a decoupled Next.js frontend and a FastAPI backend with background task execution:
+
+![Orivon Architecture Diagram](docs/diagrams/architecture.svg)
+
+For a detailed design review, see the [Technical Architecture (ARCHITECTURE)](docs/ARCHITECTURE.md) specification sheet.
+
+---
+
+## Deployment
+
+Orivon is fully configured for containerized production environments:
+
+### Backend Deployment (Railway / Render)
+1.  Use the root [Dockerfile](Dockerfile) to build the python environment.
+2.  Ensure you override the default startup command in your cloud platform to bind to the dynamic `$PORT` environment variable:
+    ```bash
+    uvicorn app.main:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 65
+    ```
+3.  Mount a persistent disk volume to the `/app/uploads` path to retain audio files across deployments.
+
+### Frontend Deployment (Vercel)
+1.  Deploy the `frontend/` directory using Next.js presets.
+2.  Expose `NEXT_PUBLIC_API_URL` pointing to your deployed backend URL.
+
+---
+
 ## Documentation
 
 For deep dives into Orivon's design guidelines, data layouts, lifecycle flows, and technical definitions, see the following consolidated sheets:
-*   [Product Requirements Document (PRD)](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/PRD.md)
-*   [Technical Requirements Document (TRD)](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/TRD.md)
-*   [Technical Architecture (ARCHITECTURE)](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/ARCHITECTURE.md)
-*   [Application Interaction Flow](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/APP_FLOW.md)
-*   [UI/UX Design Specification](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/UI_UX_BRIEF.md)
-*   [Backend Database Schema](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/BACKEND_SCHEMA.md)
-*   [Implementation Log & Retrospective](file:///Users/rahultanwar/Documents/Codex/2026-07-15/build/meeting-ai/docs/IMPLEMENTATION_PLAN.md)
+*   [Product Requirements Document (PRD)](docs/PRD.md)
+*   [Technical Requirements Document (TRD)](docs/TRD.md)
+*   [Technical Architecture (ARCHITECTURE)](docs/ARCHITECTURE.md)
+*   [Application Interaction Flow](docs/APP_FLOW.md)
+*   [UI/UX Design Specification](docs/UI_UX_BRIEF.md)
+*   [Backend Database Schema](docs/BACKEND_SCHEMA.md)
+*   [Implementation Log & Retrospective](docs/IMPLEMENTATION_PLAN.md)
+
+---
+
+## License & Contributing
+
+*   Distributed under the **[MIT License](LICENSE)**.
+*   Contributions are welcome! Please read the **[Contributing Guide](CONTRIBUTING.md)** before opening pull requests.
 
