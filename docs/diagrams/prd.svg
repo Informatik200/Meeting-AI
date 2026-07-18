@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="580" height="280" viewBox="0 0 580 280">
+  <rect width="100%" height="100%" fill="#0A0A0A"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#FFFFFF"/>
+    </marker>
+  </defs>
+  <path d="M 170 80 L 220 80" stroke="#FFFFFF" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="195.0" y="72.0" fill="#E8E6E1" font-family="sans-serif" font-size="11" text-anchor="middle">Upload</text>
+  <path d="M 340 80 L 390 80" stroke="#FFFFFF" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="365.0" y="72.0" fill="#E8E6E1" font-family="sans-serif" font-size="11" text-anchor="middle">Processing</text>
+  <path d="M 450 110 L 450 160" stroke="#FFFFFF" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="450.0" y="127.0" fill="#E8E6E1" font-family="sans-serif" font-size="11" text-anchor="middle">Completed</text>
+  <path d="M 390 190 L 340 190" stroke="#FFFFFF" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="365.0" y="182.0" fill="#E8E6E1" font-family="sans-serif" font-size="11" text-anchor="middle">Query tag graph</text>
+  <rect x="50" y="50" width="120" height="60" rx="8" ry="8" fill="#121212" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="110.0" y="76.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">1. Landing Area</text>
+  <text x="110.0" y="92.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Empty visual slate</text>
+  <rect x="220" y="50" width="120" height="60" rx="8" ry="8" fill="#121212" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="280.0" y="76.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">2. Capture Trigger</text>
+  <text x="280.0" y="92.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Drag / Mic recording</text>
+  <rect x="390" y="50" width="120" height="60" rx="8" ry="8" fill="#121212" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="450.0" y="76.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">3. Polling checks</text>
+  <text x="450.0" y="92.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Live updates</text>
+  <rect x="390" y="160" width="120" height="60" rx="8" ry="8" fill="#121212" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="450.0" y="186.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">4. Consumption</text>
+  <text x="450.0" y="202.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Overview / Transcribe</text>
+  <rect x="220" y="160" width="120" height="60" rx="8" ry="8" fill="#121212" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="280.0" y="186.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">5. Memory Search</text>
+  <text x="280.0" y="202.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">AI grounding chat</text>
+</svg>

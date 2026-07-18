@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="260" viewBox="0 0 600 260">
+  <rect width="100%" height="100%" fill="#0A0A0A"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#FFFFFF"/>
+    </marker>
+  </defs>
+  <path d="M 100 100 L 250 100" stroke="#FFFFFF" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="175.0" y="92.0" fill="#E8E6E1" font-family="sans-serif" font-size="11" text-anchor="middle">POST /upload</text>
+  <path d="M 350 100 L 450 100" stroke="#FFFFFF" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="400.0" y="92.0" fill="#E8E6E1" font-family="sans-serif" font-size="11" text-anchor="middle">Write initial row</text>
+  <path d="M 300 100 L 300 160" stroke="#FFFFFF" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="300.0" y="122.0" fill="#E8E6E1" font-family="sans-serif" font-size="11" text-anchor="middle">Delegate task</text>
+  <path d="M 250 120 L 100 120" stroke="#FFFFFF" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="175.0" y="112.0" fill="#E8E6E1" font-family="sans-serif" font-size="11" text-anchor="middle">Return metadata</text>
+  <path d="M 100 140 L 250 140" stroke="#FFFFFF" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text x="175.0" y="132.0" fill="#E8E6E1" font-family="sans-serif" font-size="11" text-anchor="middle">GET /meetings/{id} (polling)</text>
+  <rect x="50" y="50" width="100" height="50" rx="8" ry="8" fill="#121212" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="100.0" y="79.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Next.js Client</text>
+  <rect x="250" y="50" width="100" height="50" rx="8" ry="8" fill="#121212" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="300.0" y="79.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">FastAPI Web</text>
+  <path d="M 450 65 L 450 85 A 50.0 15 0 0 0 550 85 L 550 65 A 50.0 15 0 0 0 450 65 A 50.0 15 0 0 0 550 65 Z" fill="#121212" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="500.0" y="79.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">SQLite/Postgres</text>
+  <rect x="250" y="160" width="100" height="50" rx="8" ry="8" fill="#121212" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="300.0" y="189.0" fill="#E8E6E1" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Background Thread</text>
+</svg>

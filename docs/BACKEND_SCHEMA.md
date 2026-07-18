@@ -4,28 +4,7 @@ This document describes the database schema, table columns, constraints, and rel
 
 ---
 
-## 1. Table Relationships (Entity Relationship Diagram)
-
-```
-  +-------------+            +-------------+
-  |    users    | 1        * |   meetings  |
-  |  (id, PK)   +------------>  (id, PK)   |
-  +------+------+            +------+------+
-         | 1                        | 1
-         |                          |
-         | *                        | *
-  +------v------+            +------v------+
-  |refresh_toks |            |  mtg_entity |
-  |  (id, PK)   |            | (composite) |
-  +-------------+            +------+------+
-                                    | *
-                                    |
-                                    | 1
-                             +------v------+
-                             |   entities  |
-                             |  (id, PK)   |
-                             +-------------+
-```
+![Orivon Database ER Diagram](diagrams/backend_schema.svg)
 
 ---
 

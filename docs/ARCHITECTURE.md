@@ -4,23 +4,7 @@ This document describes the high-level system design, data flows, components, li
 
 ---
 
-## 1. High-Level System Architecture
-
-Orivon structures its capabilities around a decoupled Next.js frontend and a FastAPI backend:
-
-```
-[Web Client (Next.js)] <--- HTTP, JSON, cookies ---> [FastAPI Web Server]
-                                                            │
-                                        ┌───────────────────┴───────────────────┐
-                                        ▼                                       ▼
-                             [SQLite / PostgreSQL DB]                [Local Audio Storage]
-                                        │
-                                        ▼
-                             [background Task Engine]
-                                        │
-                                        ├──> Whisper Transcription CLI
-                                        └──> Gemini LLM API (google-genai)
-```
+![Orivon Component Architecture](diagrams/architecture.svg)
 
 ---
 

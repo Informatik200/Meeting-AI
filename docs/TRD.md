@@ -4,16 +4,7 @@ This document defines the technical architecture, application stack, API routes,
 
 ---
 
-## 1. Application Architecture
-
-```
-Client (Next.js) <-------- HTTP & JSON --------> API (FastAPI)
-                                                    │
-                                                    ├──> SQLite/Postgres (SQLAlchemy)
-                                                    ├──> Local Storage (audio files)
-                                                    ├──> local Whisper CLI Subprocesses
-                                                    └──> Google Gemini API (gemini-3.1-flash-lite)
-```
+![Orivon Sequence & API Flow](diagrams/trd.svg)
 
 ---
 
