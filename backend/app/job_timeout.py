@@ -58,8 +58,7 @@ class JobWithTimeout:
         if elapsed > self.timeout_seconds:
             self.was_timeout = True
             logger.warning(
-                f"Job {self.job_id} ({self.job_name}) exceeded timeout "
-                f"({elapsed:.2f}s > {self.timeout_seconds}s)"
+                f"Job {self.job_id} ({self.job_name}) exceeded timeout " f"({elapsed:.2f}s > {self.timeout_seconds}s)"
             )
             return True
         return False
