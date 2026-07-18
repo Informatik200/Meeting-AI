@@ -6,7 +6,6 @@ Ensures proper cleanup on termination.
 import asyncio
 import logging
 import signal
-import sys
 from typing import Any, Callable
 
 logger = logging.getLogger("app")
