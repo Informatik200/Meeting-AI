@@ -1,0 +1,89 @@
+version: '3.9'
+
+services:
+  # PostgreSQL database for local development
+  postgres:
+    image: postgres:16-alpine
+    container_name: meeting-ai-postgres
+    environment:
+      POSTGRES_USER: meeting_ai
+      POSTGRES_PASSWORD: dev_password_change_me
+      POSTGRES_DB: meeting_ai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meeting_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - meeting-ai-network
+
+  # Backend API service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting-ai-backend
+    environment:
+      DATABASE_URL: postgresql://meeting_ai:dev_password_change_me@postgres:5432/meeting_ai
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      CORS_ORIGINS: http://localhost:3000,http://frontend:3000
+      UPLOAD_DIR: /app/uploads
+      LOG_LEVEL: DEBUG
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      WHISPER_MODEL_SIZE: small
+      MAX_UPLOAD_MB: 200
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - meeting-ai-network
+    # Reload on code changes in development
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend service
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: meeting-ai-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/app:/app/app
+      - ./frontend/public:/app/public
+      - /app/.next
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - meeting-ai-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  meeting-ai-network:
+    driver: bridge
