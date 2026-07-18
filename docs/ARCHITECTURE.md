@@ -4,10 +4,6 @@ This document describes the high-level system design, data flows, components, li
 
 ---
 
-![Orivon Component Architecture](./diagrams/architecture.svg)
-
----
-
 ## 2. Component Design & Responsibilities
 
 ### Frontend (Next.js)
