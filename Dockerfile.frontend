@@ -1,0 +1,62 @@
+# Multi-stage build for Meeting AI Frontend
+# Stage 1: Build
+FROM node:20-alpine as builder
+
+WORKDIR /build
+
+# Copy package files
+COPY frontend/package.json frontend/package-lock.json ./
+
+# Install dependencies
+RUN npm ci --prefer-offline --no-audit
+
+# Copy source code
+COPY frontend/app ./app
+COPY frontend/e2e ./e2e
+COPY frontend/public ./public 2>/dev/null || true
+COPY frontend/eslint.config.mjs ./
+COPY frontend/next.config.js ./
+COPY frontend/postcss.config.mjs ./
+COPY frontend/tailwind.config.ts ./
+COPY frontend/tsconfig.json ./
+COPY frontend/.env.local.example .env.local
+
+# Build application
+RUN npm run build
+
+# Stage 2: Runtime
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Copy built application from builder
+COPY --from=builder /build/.next ./.next
+COPY --from=builder /build/public ./public 2>/dev/null || true
+COPY --from=builder /build/package.json ./package.json
+COPY --from=builder /build/package-lock.json ./package-lock.json
+
+# Install only production dependencies
+RUN npm ci --only=production --prefer-offline --no-audit
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+# Non-root user for security
+RUN addgroup -g 1000 nextjs && adduser -D -u 1000 -G nextjs nextjs
+USER nextjs
+
+# Environment variables
+ENV NODE_ENV=production \
+    PORT=3000
+
+EXPOSE 3000
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start application
+CMD ["npm", "run", "start"]
