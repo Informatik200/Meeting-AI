@@ -37,7 +37,7 @@ RUN mkdir -p /app/uploads /app/logs
 
 # Health check (reads dynamic PORT or defaults to 8000)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import requests, os; requests.get(f'http://localhost:{os.getenv(\"PORT\", \"8000\")}/health')" || exit 1
+    CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://localhost:{os.getenv(\"PORT\", \"8000\")}/health')" || exit 1
 
 # Set Python path
 ENV PYTHONUNBUFFERED=1 \
