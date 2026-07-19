@@ -1,0 +1,3 @@
+# Nixpacks configuration to install system packages required by Whisper (ctranslate2)
+[phases.setup]
+aptPkgs = ["libgomp1"]

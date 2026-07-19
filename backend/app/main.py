@@ -50,7 +50,11 @@ _ai_rate_limit = rate_limiter(settings.rate_limit_ai_per_minute)
 @app.on_event("startup")
 def on_startup():
     os.makedirs(settings.upload_dir, exist_ok=True)
-    init_db()
+    try:
+        init_db()
+        logger.info("Database initialized successfully.")
+    except Exception as e:
+        logger.error(f"Database initialization failed during startup: {e}", exc_info=True)
 
 
 @app.get("/health")
